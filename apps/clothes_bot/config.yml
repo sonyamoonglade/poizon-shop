@@ -1,0 +1,3 @@
+
+telegram:
+  handler_timeout: 5

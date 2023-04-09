@@ -1,0 +1,26 @@
+[
+  {
+    "createIndexes": "customers",
+    "indexes": [
+      {
+        "key": {
+          "telegramId": 1
+        },
+        "name": "telegramId_unique_asc",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "createIndexes": "orders",
+    "indexes": [
+      {
+        "key": {
+          "shortId": 1
+        },
+        "name": "shortId_unique_asc",
+        "unique": true
+      }
+    ]
+  }
+]
