@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"domain"
@@ -15,31 +16,32 @@ import (
 type HouseholdOnChangeFunc func(items []domain.HouseholdCategory)
 
 type householdCategoryRepo struct {
-	catalog      *mongo.Collection
+	categories   *mongo.Collection
 	onChangeHook HouseholdOnChangeFunc
 }
 
-func NewHouseholdCategoryRepo(catalog *mongo.Collection, onChangeHook HouseholdOnChangeFunc) *householdCategoryRepo {
+func NewHouseholdCategoryRepo(categories *mongo.Collection, onChangeHook HouseholdOnChangeFunc) *householdCategoryRepo {
 	return &householdCategoryRepo{
-		catalog:      catalog,
+		categories:   categories,
 		onChangeHook: onChangeHook,
 	}
 }
 
 func (r *householdCategoryRepo) GetTopRank(ctx context.Context) (uint, error) {
-	numDocuments, err := r.catalog.CountDocuments(ctx, bson.D{})
+	numDocuments, err := r.categories.CountDocuments(ctx, bson.D{})
 	if err != nil {
 		return 0, fmt.Errorf("count documents: %w", err)
 	}
 	return uint(numDocuments), nil
 }
 
-func (r *householdCategoryRepo) New(ctx context.Context, c domain.HouseholdCategory) error {
-	_, err := r.catalog.InsertOne(ctx, c)
+func (r *householdCategoryRepo) Save(ctx context.Context, c domain.HouseholdCategory) error {
+	_, err := r.categories.InsertOne(ctx, c)
 	if err != nil {
 		return fmt.Errorf("insert one: %w", err)
 	}
-	return nil
+	// todo: trigger on change hook
+	return r.runOnChangeHook(ctx)
 }
 
 func (r *householdCategoryRepo) Update(ctx context.Context, categoryID primitive.ObjectID, dto dto.UpdateCategoryDTO) error {
@@ -73,7 +75,7 @@ func (r *householdCategoryRepo) Update(ctx context.Context, categoryID primitive
 		upd["rank"] = dto.Rank
 	}
 
-	res, err := r.catalog.UpdateOne(ctx, fil, bson.M{"$set": upd})
+	res, err := r.categories.UpdateOne(ctx, fil, bson.M{"$set": upd})
 	if err != nil {
 		return fmt.Errorf("update one: %w", err)
 	}
@@ -81,15 +83,106 @@ func (r *householdCategoryRepo) Update(ctx context.Context, categoryID primitive
 		return domain.ErrCategoryNotFound
 	}
 
-	return nil
+	return r.runOnChangeHook(ctx)
 }
 
 func (r *householdCategoryRepo) Delete(ctx context.Context, categoryID primitive.ObjectID) error {
-	//TODO implement me
-	panic("implement me")
+	res, err := r.categories.DeleteOne(ctx, bson.M{"_id": categoryID})
+	if err != nil {
+		return fmt.Errorf("delete one: %w", err)
+	}
+	if res.DeletedCount == 0 {
+		return domain.ErrCategoryNotFound
+	}
+	return r.runOnChangeHook(ctx)
 }
 
-func (r *householdCategoryRepo) GetAll(ctx context.Context) ([]domain.Category, error) {
-	//TODO implement me
-	panic("implement me")
+func (r *householdCategoryRepo) GetAll(ctx context.Context) ([]domain.HouseholdCategory, error) {
+	opts := options.Find()
+	opts.SetSort(bson.M{"rank": 1})
+	cur, err := r.categories.Find(ctx, bson.D{}, opts)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, domain.ErrNoCategories
+		}
+		return nil, fmt.Errorf("find: %w", err)
+	}
+	categories := make([]domain.HouseholdCategory, 0)
+	if err := cur.All(ctx, &categories); err != nil {
+		return nil, fmt.Errorf("cursor all: %w", err)
+	}
+	return categories, nil
+}
+func (r *householdCategoryRepo) GetByID(ctx context.Context, categoryID primitive.ObjectID) (domain.HouseholdCategory, error) {
+	res := r.categories.FindOne(ctx, bson.M{"_id": categoryID})
+	if res.Err() != nil {
+		if errors.Is(res.Err(), mongo.ErrNoDocuments) {
+			return domain.HouseholdCategory{}, domain.ErrCategoryNotFound
+		}
+		return domain.HouseholdCategory{}, fmt.Errorf("find one: %w", res.Err())
+	}
+	var c domain.HouseholdCategory
+	if err := res.Decode(&c); err != nil {
+		return domain.HouseholdCategory{}, fmt.Errorf("decode: %w", err)
+	}
+	return c, nil
+}
+
+func (r *householdCategoryRepo) GetByTitle(ctx context.Context, title string) (domain.HouseholdCategory, error) {
+	res := r.categories.FindOne(ctx, bson.M{"title": title})
+	if err := res.Err(); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return domain.HouseholdCategory{}, domain.ErrCategoryNotFound
+		}
+		return domain.HouseholdCategory{}, err
+	}
+	var c domain.HouseholdCategory
+	if err := res.Decode(&c); err != nil {
+		return domain.HouseholdCategory{}, err
+	}
+	return c, nil
+}
+
+func (r *householdCategoryRepo) GetProductsByCategoryAndSubcategory(ctx context.Context,
+	cTitle,
+	sTitle string,
+	availableInStock bool) ([]domain.HouseholdProduct, error) {
+
+	filter := bson.M{"$and": []bson.M{
+		{"title": cTitle},
+		{"subcategories.title": sTitle},
+		{"subcategories.products.availableInStock": availableInStock},
+	}}
+
+	fields := bson.M{
+		"subcategories": 1,
+	}
+	opts := options.FindOne().SetProjection(fields)
+
+	res := r.categories.FindOne(ctx, filter, opts)
+	if err := res.Err(); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, domain.ErrProductsNotFound
+		}
+		return nil, err
+	}
+	type productsResp struct {
+		Subcategories []domain.Subcategory `bson:"subcategories"`
+	}
+	var resp productsResp
+	if err := res.Decode(&resp); err != nil {
+		return nil, err
+	}
+	return resp.Subcategories[0].Products, nil
+}
+
+func (r *householdCategoryRepo) runOnChangeHook(ctx context.Context) error {
+	if r.onChangeHook != nil {
+		catalog, err := r.GetAll(ctx)
+		if err != nil {
+			return fmt.Errorf("get all: %w", err)
+		}
+		r.onChangeHook(catalog)
+	}
+	return nil
 }

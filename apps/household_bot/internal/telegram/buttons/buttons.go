@@ -9,53 +9,86 @@ import (
 
 // Following structs represent 'data' field in tg.InlineButton
 type Category struct {
-	c     callback.Callback
-	msgID int
-	title string
+	c                    callback.Callback
+	title                string
+	onlyAvailableInStock bool
 }
 
-func NewCategoryButton(cb callback.Callback, msgID int, title string) Category {
+func NewCategoryButton(cb callback.Callback, title string, inStock bool) Category {
 	return Category{
-		c:     cb,
-		msgID: msgID,
-		title: title,
+		c:                    cb,
+		title:                title,
+		onlyAvailableInStock: inStock,
 	}
 }
 
 func (c Category) ToRow() []tg.InlineKeyboardButton {
-	return tg.NewInlineKeyboardRow(tg.NewInlineKeyboardButtonData(c.title, callback.Inject(c.c, strconv.Itoa(c.msgID))))
+	data := callback.Inject(c.c, c.title, strconv.FormatBool(c.onlyAvailableInStock))
+	return tg.NewInlineKeyboardRow(tg.NewInlineKeyboardButtonData(c.title, data))
 }
 
 type Subcategory struct {
 	c     callback.Callback
-	msgID int
 	title string
 	// Parent category title
-	cTitle string
+	cTitle               string
+	onlyAvailableInStock bool
 }
 
-func NewSubcategory(cb callback.Callback, msgID int, cTitle, title string) Subcategory {
+func NewSubcategory(cb callback.Callback, cTitle, title string, inStock bool) Subcategory {
 	return Subcategory{
-		c:      cb,
-		msgID:  msgID,
-		cTitle: cTitle,
-		title:  title,
+		c:                    cb,
+		cTitle:               cTitle,
+		title:                title,
+		onlyAvailableInStock: inStock,
 	}
+}
+
+func (s Subcategory) ToRow() []tg.InlineKeyboardButton {
+	data := callback.Inject(s.c, s.cTitle, s.title, strconv.FormatBool(s.onlyAvailableInStock))
+	return tg.NewInlineKeyboardRow(tg.NewInlineKeyboardButtonData(s.title, data))
 }
 
 type ProductCard struct {
 	c              callback.Callback
 	offset         int
-	msgID          int
 	cTitle, sTitle string
 }
 
-func NewProductCart(cb callback.Callback, msgID, offset int, cTitle, sTitle string) ProductCard {
+func NewProductCard(cb callback.Callback, offset int, cTitle, sTitle string) ProductCard {
 	return ProductCard{
 		c:      cb,
-		msgID:  msgID,
 		offset: offset,
 		cTitle: cTitle,
 		sTitle: sTitle,
 	}
+}
+
+type BackButton struct {
+	c       callback.Callback
+	cTitle  *string
+	inStock *bool
+}
+
+func NewBackButton(c callback.Callback, cTitle *string, inStock *bool) BackButton {
+	return BackButton{
+		c:       c,
+		cTitle:  cTitle,
+		inStock: inStock,
+	}
+}
+
+const (
+	backButtonTitle = "Вернуться назад"
+)
+
+func (b BackButton) ToRow() []tg.InlineKeyboardButton {
+	var data string
+	if b.cTitle != nil && b.inStock != nil {
+		data = callback.Inject(b.c, *b.cTitle, strconv.FormatBool(*b.inStock))
+	} else if b.inStock != nil {
+		data = callback.Inject(b.c, strconv.FormatBool(*b.inStock))
+	}
+
+	return tg.NewInlineKeyboardRow(tg.NewInlineKeyboardButtonData(backButtonTitle, data))
 }

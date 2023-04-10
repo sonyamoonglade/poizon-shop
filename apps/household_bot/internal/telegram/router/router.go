@@ -22,9 +22,11 @@ var (
 type RouteHandler interface {
 	Start(ctx context.Context, chatID int64) error
 	Menu(ctx context.Context, chatID int64) error
-	Catalog(ctx context.Context, chatID int64) error
+	Catalog(ctx context.Context, chatID int64, prevMsgID *int) error
 
 	Categories(ctx context.Context, chatID int64, prevMsgID int, onlyAvailableInStock bool) error
+	Subcategories(ctx context.Context, chatID int64, prevMsgID int, args []string) error
+	Products(ctx context.Context, chatID int64, prevMsgID int, args []string) error
 	AnswerCallback(c *tg.CallbackQuery) error
 }
 
@@ -141,21 +143,28 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 		zap.String("from", username),
 		zap.String("date", date),
 	)
-	intCallback, injectedValues, err := callback.ParseButtonData(data)
+	intCallback, parsedArgs, err := callback.ParseButtonData(data)
 	if err != nil {
 		return fmt.Errorf("parse button data: %w", err)
 	}
-	_ = injectedValues
+	_ = parsedArgs
 
 	switch intCallback {
 	case callback.NoOpCallback:
 		return nil
 	case callback.Catalog:
-		return r.handler.Catalog(ctx, chatID)
+		if len(parsedArgs) > 0 {
+			return r.handler.Catalog(ctx, chatID, &msgID)
+		}
+		return r.handler.Catalog(ctx, chatID, nil)
 	case callback.CTypeInStock:
 		return r.handler.Categories(ctx, chatID, msgID, true)
 	case callback.CTypeOrder:
 		return r.handler.Categories(ctx, chatID, msgID, false)
+	case callback.SelectCategory:
+		return r.handler.Subcategories(ctx, chatID, msgID, parsedArgs)
+	case callback.SelectSubcategory:
+		return r.handler.Products(ctx, chatID, msgID, parsedArgs)
 	default:
 		return ErrNoHandler
 	}

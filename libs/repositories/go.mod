@@ -11,8 +11,6 @@ require (
 	domain v0.0.0
 	dto v0.0.0
 	functools v0.0.0 // indirect
-	onlineshop/database v0.0.0
-	logger v0.0.0
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/montanaflynn/stats v0.0.0-20171201202039-1bf9dbcd8cbe // indirect
@@ -26,12 +24,16 @@ require (
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/text v0.3.7 // indirect
+	logger v0.0.0
+	nanoid v0.0.0
+	onlineshop/database v0.0.0
 )
 
 replace (
-	onlineshop/database v0.0.0 => ../database
 	domain v0.0.0 => ../domain
 	dto v0.0.0 => ../dto
-	logger v0.0.0 => ../logger
+	nanoid v0.0.0 => ../nanoid
 	functools v0.0.0 => ../functools
+	logger v0.0.0 => ../logger
+	onlineshop/database v0.0.0 => ../database
 )

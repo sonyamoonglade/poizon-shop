@@ -16,6 +16,18 @@ var (
 	ErrNoCategoryID = errors.New("missing categoryId")
 )
 
+func (h *Handler) GetCategoryByID(c *fiber.Ctx) error {
+	categoryID, err := h.getCategoryIdFromParams(c)
+	if err != nil {
+		return fmt.Errorf("get category id from params: %w", err)
+	}
+	category, err := h.categoryService.GetByID(c.Context(), categoryID)
+	if err != nil {
+		return fmt.Errorf("get by id: %w", err)
+	}
+	return c.Status(http.StatusOK).JSON(category)
+}
+
 func (h *Handler) NewCategory(c *fiber.Ctx) error {
 	title := c.Query("title", "")
 	t, err := url.QueryUnescape(title)

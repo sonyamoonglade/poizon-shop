@@ -16,6 +16,7 @@ const (
 	CTypeOrder
 	CTypeInStock
 	SelectCategory
+	SelectSubcategory
 )
 
 func (c Callback) string() string {

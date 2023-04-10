@@ -40,10 +40,10 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	{
 		order.Get("/all", h.GetAllOrders)
 		order.Get("/:shortId", h.GetOrderByID)
-		order.Put("/addComment", h.AddCommentToOrder)
-		order.Put("/changeStatus", h.ChangeOrderStatus)
-		order.Put("/approve/:orderId", h.Approve)
-		order.Post("/delete/:orderId", h.Delete)
+		order.Put("/:orderId/addComment", h.AddCommentToOrder)
+		order.Put("/:orderId/changeStatus", h.ChangeOrderStatus)
+		order.Put("/:orderId/approve", h.Approve)
+		order.Post("/:orderId/delete/", h.Delete)
 	}
 
 	clothingCatalog := api.Group("/clothing/catalog")
@@ -56,6 +56,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	householdCategories := api.Group("/household/categories")
 	{
 		householdCategories.Get("/all", h.GetAllCategories)
+		householdCategories.Get("/:categoryId", h.GetCategoryByID)
 		householdCategories.Post("/new", h.NewCategory)
 		householdCategories.Put("/:categoryId/update", h.UpdateCategory)
 		householdCategories.Post("/:categoryId/delete", h.DeleteCategory)

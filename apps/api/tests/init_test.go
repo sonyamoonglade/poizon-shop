@@ -28,10 +28,11 @@ func init() {
 type AppTestSuite struct {
 	suite.Suite
 
-	db           *database.Mongo
-	api          *handler.Handler
-	repositories *repositories.Repositories
-	app          *fiber.App
+	db                       *database.Mongo
+	api                      *handler.Handler
+	repositories             *repositories.Repositories
+	householdCategoryService services.HouseholdCategory
+	app                      *fiber.App
 }
 
 func TestAPISuite(t *testing.T) {
@@ -72,8 +73,8 @@ func (s *AppTestSuite) setupDeps() {
 
 	repos := repositories.NewRepositories(mongo, nil, nil)
 
-	categoryService := services.NewHouseholdCategoryService(repos.HouseholdCategory)
-	apiHandler := handler.NewHandler(repos, categoryService)
+	hhCategoryService := services.NewHouseholdCategoryService(repos.HouseholdCategory, mongo)
+	apiHandler := handler.NewHandler(repos, hhCategoryService)
 
 	app := fiber.New(fiber.Config{
 		Immutable:    true,
@@ -89,6 +90,7 @@ func (s *AppTestSuite) setupDeps() {
 
 	s.app = app
 	s.db = mongo
+	s.householdCategoryService = hhCategoryService
 	s.api = apiHandler
 	s.repositories = &repos
 }

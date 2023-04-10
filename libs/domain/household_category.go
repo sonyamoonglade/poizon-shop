@@ -8,6 +8,7 @@ import (
 
 var (
 	ErrCategoryNotFound = errors.New("category not found")
+	ErrNoCategories     = errors.New("no categories")
 )
 
 type HouseholdCategory struct {
@@ -25,7 +26,7 @@ func NewHouseholdCategory(title string) HouseholdCategory {
 	}
 }
 
-func (c HouseholdCategory) SetRank(r uint) HouseholdCategory {
+func (c *HouseholdCategory) SetRank(r uint) *HouseholdCategory {
 	c.Rank = r
 	return c
 }

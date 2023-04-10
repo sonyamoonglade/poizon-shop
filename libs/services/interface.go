@@ -16,8 +16,9 @@ type Order interface {
 }
 
 type HouseholdCategory interface {
+	GetByID(ctx context.Context, categoryID primitive.ObjectID) (domain.HouseholdCategory, error)
+	GetAll(ctx context.Context) ([]domain.HouseholdCategory, error)
 	New(ctx context.Context, title string) error
 	Delete(ctx context.Context, categoryID primitive.ObjectID) error
 	Update(ctx context.Context, categoryID primitive.ObjectID, dto dto.UpdateCategoryDTO) error
-	GetAll(ctx context.Context) ([]domain.Category, error)
 }

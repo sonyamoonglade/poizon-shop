@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"household_bot/config"
-	"household_bot/internal/catalog"
 	"household_bot/internal/telegram/bot"
 	"household_bot/internal/telegram/handler"
 	"household_bot/internal/telegram/router"
@@ -51,11 +50,7 @@ func run() error {
 		return fmt.Errorf("error connecting to mongo: %w", err)
 	}
 
-	catalogProvider := catalog.NewProvider()
-	_ = catalogProvider
-
-	categoryRepo := repositories.NewHouseholdCategoryRepo(mongo.Collection("catalog"), catalogProvider.MakeOnChangeHook())
-	_ = categoryRepo
+	repos := repositories.NewRepositories(mongo, nil, nil)
 
 	tgBot, err := bot.NewBot(bot.Config{
 		Token: cfg.Bot.Token,
@@ -64,7 +59,7 @@ func run() error {
 		return fmt.Errorf("error creating telegram bot: %w", err)
 	}
 
-	tgHandler := handler.NewHandler(tgBot, nil, catalogProvider)
+	tgHandler := handler.NewHandler(tgBot, repos.Rate, repos.HouseholdCategory)
 	tgRouter := router.NewRouter(tgBot.GetUpdates(),
 		tgHandler,
 		nil,

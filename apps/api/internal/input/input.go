@@ -7,25 +7,23 @@ import (
 )
 
 type AddCommentToOrderInput struct {
-	OrderID primitive.ObjectID `json:"orderId"`
-	Comment string             `json:"comment"`
+	Comment string `json:"comment"`
 }
 
-func (a AddCommentToOrderInput) ToDTO() dto.AddCommentDTO {
+func (a AddCommentToOrderInput) ToDTO(orderID primitive.ObjectID) dto.AddCommentDTO {
 	return dto.AddCommentDTO{
-		OrderID: a.OrderID,
+		OrderID: orderID,
 		Comment: a.Comment,
 	}
 }
 
 type ChangeOrderStatusInput struct {
-	OrderID   primitive.ObjectID `json:"orderId"`
-	NewStatus int                `json:"newStatus"`
+	NewStatus int `json:"newStatus"`
 }
 
-func (c ChangeOrderStatusInput) ToDTO() dto.ChangeOrderStatusDTO {
+func (c ChangeOrderStatusInput) ToDTO(orderID primitive.ObjectID) dto.ChangeOrderStatusDTO {
 	return dto.ChangeOrderStatusDTO{
-		OrderID:   c.OrderID,
+		OrderID:   orderID,
 		NewStatus: domain.Status(c.NewStatus),
 	}
 }

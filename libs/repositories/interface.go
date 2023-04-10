@@ -40,9 +40,12 @@ type ClothingCatalog interface {
 }
 
 type HouseholdCategory interface {
-	New(ctx context.Context, c domain.HouseholdCategory) error
+	GetByID(ctx context.Context, categoryID primitive.ObjectID) (domain.HouseholdCategory, error)
+	GetByTitle(ctx context.Context, title string) (domain.HouseholdCategory, error)
+	GetProductsByCategoryAndSubcategory(ctx context.Context, cTitle, sTitle string, availableInStock bool) ([]domain.HouseholdProduct, error)
+	GetAll(ctx context.Context) ([]domain.HouseholdCategory, error)
+	Save(ctx context.Context, c domain.HouseholdCategory) error
 	GetTopRank(ctx context.Context) (uint, error)
 	Delete(ctx context.Context, categoryID primitive.ObjectID) error
 	Update(ctx context.Context, categoryID primitive.ObjectID, dto dto.UpdateCategoryDTO) error
-	GetAll(ctx context.Context) ([]domain.Category, error)
 }

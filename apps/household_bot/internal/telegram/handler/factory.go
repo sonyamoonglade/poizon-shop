@@ -1,10 +1,11 @@
 package handler
 
 import (
+	"context"
 	"errors"
 
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"household_bot/internal/catalog"
+	"repositories"
 )
 
 var (
@@ -13,9 +14,8 @@ var (
 )
 
 type RateProvider interface {
-	GetYuanRate() float64
+	GetYuanRate(ctx context.Context) (float64, error)
 }
-
 type Bot interface {
 	Send(c tg.Chattable) (tg.Message, error)
 	CleanRequest(c tg.Chattable) error
@@ -23,16 +23,16 @@ type Bot interface {
 }
 
 type handler struct {
-	bot             Bot
-	rateProvider    RateProvider
-	catalogProvider *catalog.Provider
+	bot                   Bot
+	rateProvider          RateProvider
+	householdCategoryRepo repositories.HouseholdCategory
 }
 
-func NewHandler(b Bot, rp RateProvider, cp *catalog.Provider) *handler {
+func NewHandler(b Bot, rp RateProvider, householdCategoryRepo repositories.HouseholdCategory) *handler {
 	return &handler{
-		bot:             b,
-		rateProvider:    rp,
-		catalogProvider: cp,
+		bot:                   b,
+		rateProvider:          rp,
+		householdCategoryRepo: householdCategoryRepo,
 	}
 }
 

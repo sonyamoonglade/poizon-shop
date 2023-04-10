@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"logger"
-
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readconcern"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"logger"
 )
 
 type Mongo struct {
@@ -17,6 +17,11 @@ type Mongo struct {
 }
 
 const retries = 5
+
+type TxFunc func(tx context.Context) error
+type Transactor interface {
+	WithTransaction(ctx context.Context, f TxFunc) error
+}
 
 func Connect(ctx context.Context, uri string, DBName string) (*Mongo, error) {
 	// Uses connection pool
@@ -57,25 +62,16 @@ func (m *Mongo) Close(ctx context.Context) error {
 	return m.c.Disconnect(ctx)
 }
 
-type txFunc func(tx mongo.SessionContext) error
-type Transactor interface {
-	WithTransaction(ctx context.Context, f txFunc) error
-}
-
-func (m *Mongo) WithTransaction(ctx context.Context, txFn txFunc) error {
+func (m *Mongo) WithTransaction(ctx context.Context, txFn TxFunc) error {
+	opts := options.Transaction()
+	opts.SetReadConcern(readconcern.Snapshot())
 	sess, err := m.db.Client().StartSession()
 	if err != nil {
 		return fmt.Errorf("start session: %w", err)
 	}
-	if err := sess.StartTransaction(); err != nil {
-		return fmt.Errorf("start transaction: %w", err)
-	}
 	defer sess.EndSession(context.Background())
 	_, err = sess.WithTransaction(ctx, func(tx mongo.SessionContext) (interface{}, error) {
-		if err := txFn(tx); err != nil {
-			return nil, tx.AbortTransaction(context.Background())
-		}
-		return nil, tx.CommitTransaction(context.Background())
+		return nil, txFn(tx)
 	})
 	return err
 }

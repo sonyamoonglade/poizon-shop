@@ -9,7 +9,7 @@ run-api:
 
 ci:
 	cd apps/api && make ci && cd ../..
-	cd apps/clothes_bot && make ci && cd ../..
+	cd apps/clothes_bo && make ci && cd ../..
 	cd apps/household_bot && make ci
 
 test:

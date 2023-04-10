@@ -81,7 +81,7 @@ func run() error {
 		return c.Next()
 	})
 
-	hhCategoryService := services.NewHouseholdCategoryService(repos.HouseholdCategory)
+	hhCategoryService := services.NewHouseholdCategoryService(repos.HouseholdCategory, mongo)
 	apiController := handler.NewHandler(repos, hhCategoryService)
 	apiController.RegisterRoutes(app)
 
