@@ -51,19 +51,24 @@ func (s Subcategory) ToRow() []tg.InlineKeyboardButton {
 }
 
 type ProductCard struct {
-	c              callback.Callback
-	next, prev     *int
-	cTitle, sTitle string
+	c                    callback.Callback
+	cTitle, sTitle, name string
+	inStock              bool
 }
 
-func NewProductCard(cb callback.Callback, cTitle, sTitle string, next, prev *int) ProductCard {
+func NewProductCard(cb callback.Callback, cTitle, sTitle, name string, inStock bool) ProductCard {
 	return ProductCard{
-		c:      cb,
-		cTitle: cTitle,
-		next:   next,
-		prev:   prev,
-		sTitle: sTitle,
+		c:       cb,
+		cTitle:  cTitle,
+		sTitle:  sTitle,
+		name:    name,
+		inStock: inStock,
 	}
+}
+
+func (p ProductCard) ToRow() []tg.InlineKeyboardButton {
+	data := callback.Inject(p.c, p.cTitle, p.sTitle, strconv.FormatBool(p.inStock), p.name)
+	return tg.NewInlineKeyboardRow(tg.NewInlineKeyboardButtonData(p.name, data))
 }
 
 type BackButton struct {

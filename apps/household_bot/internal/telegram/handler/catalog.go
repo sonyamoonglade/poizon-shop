@@ -4,9 +4,10 @@ import (
 	"context"
 	"strconv"
 
+	"domain"
+	"functools"
 	"household_bot/internal/telegram/buttons"
 	"household_bot/internal/telegram/callback"
-	"household_bot/internal/telegram/templates"
 	"household_bot/internal/telegram/tg_errors"
 
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -146,27 +147,26 @@ func (h *handler) Products(ctx context.Context, chatID int64, prevMsgID int, arg
 			CausedBy:    "GetProductsByCategoryAndSubcategory",
 		})
 	}
-	product := products[0]
-	f := tg.NewPhoto(chatID, tg.FileURL("https://picsum.photos/200"))
-	f.Caption = templates.HouseholdProductCaption(product)
-	nextTitle := "next"
+	//product := products[0]
+	//f := tg.NewPhoto(chatID, tg.FileURL("https://picsum.photos/200"))
+	//f.Caption = templates.HouseholdProductCaption(product)
+	//f.ReplyMarkup = keyboard
 	backButton := buttons.NewBackButton(callback.FromCarouselToSubcategory, &cTitle, &onlyAvailableInStock)
-	keyboard := buttons.NewProductCarouselButtons(buttons.ProductCarouselButtonsArgs{
-		CTitle:     cTitle,
-		STitle:     sTitle,
-		InStock:    onlyAvailableInStock,
-		CurrOffset: 0,          // default
-		HasNext:    true,       // testing purpose
-		HasPrev:    false,      // testing
-		NextTitle:  &nextTitle, //testing
-		PrevTitle:  nil,        // testing
-		Back:       backButton,
+	keyboard := buttons.NewProductsButtons(buttons.ProductButtonsArgs{
+		CTitle:  cTitle,
+		STitle:  sTitle,
+		InStock: onlyAvailableInStock,
+		Names: functools.Map(func(p domain.HouseholdProduct, _ int) string {
+			return p.Name
+		}, products),
+		Back: backButton,
 	})
-	f.ReplyMarkup = keyboard
-	// delete prev msg
-	if err := h.bot.CleanRequest(tg.NewDeleteMessage(chatID, prevMsgID)); err != nil {
-		// todo: errchek
-		return err
-	}
-	return h.cleanSend(f)
+	editMsg := tg.NewEditMessageText(chatID, prevMsgID, "Доутспные товары")
+	editMsg.ReplyMarkup = &keyboard
+	//if err := h.bot.CleanRequest(tg.NewDeleteMessage(chatID, prevMsgID)); err != nil {
+	//	// todo: errchek
+	//	return err
+	//}
+	_ = keyboard
+	return h.cleanSend(editMsg)
 }
