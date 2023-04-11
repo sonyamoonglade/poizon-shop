@@ -3,8 +3,9 @@ package buttons
 import (
 	"strconv"
 
-	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"household_bot/internal/telegram/callback"
+
+	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 // Following structs represent 'data' field in tg.InlineButton
@@ -51,15 +52,16 @@ func (s Subcategory) ToRow() []tg.InlineKeyboardButton {
 
 type ProductCard struct {
 	c              callback.Callback
-	offset         int
+	next, prev     *int
 	cTitle, sTitle string
 }
 
-func NewProductCard(cb callback.Callback, offset int, cTitle, sTitle string) ProductCard {
+func NewProductCard(cb callback.Callback, cTitle, sTitle string, next, prev *int) ProductCard {
 	return ProductCard{
 		c:      cb,
-		offset: offset,
 		cTitle: cTitle,
+		next:   next,
+		prev:   prev,
 		sTitle: sTitle,
 	}
 }

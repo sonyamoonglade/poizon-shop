@@ -3,9 +3,11 @@ package handler
 import (
 	"context"
 	"errors"
+	"household_bot/internal/catalog"
+
+	"repositories"
 
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"repositories"
 )
 
 var (
@@ -26,13 +28,15 @@ type handler struct {
 	bot                   Bot
 	rateProvider          RateProvider
 	householdCategoryRepo repositories.HouseholdCategory
+	catalogProvider       *catalog.Provider
 }
 
-func NewHandler(b Bot, rp RateProvider, householdCategoryRepo repositories.HouseholdCategory) *handler {
+func NewHandler(b Bot, rp RateProvider, householdCategoryRepo repositories.HouseholdCategory, catalogProvider *catalog.Provider) *handler {
 	return &handler{
 		bot:                   b,
 		rateProvider:          rp,
 		householdCategoryRepo: householdCategoryRepo,
+		catalogProvider:       catalogProvider,
 	}
 }
 

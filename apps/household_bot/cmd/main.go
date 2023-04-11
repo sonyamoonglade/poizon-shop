@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"household_bot/config"
+	"household_bot/internal/catalog"
 	"household_bot/internal/telegram/bot"
 	"household_bot/internal/telegram/handler"
 	"household_bot/internal/telegram/router"
@@ -58,8 +59,8 @@ func run() error {
 	if err != nil {
 		return fmt.Errorf("error creating telegram bot: %w", err)
 	}
-
-	tgHandler := handler.NewHandler(tgBot, repos.Rate, repos.HouseholdCategory)
+	catalogProvider := catalog.NewProvider()
+	tgHandler := handler.NewHandler(tgBot, repos.Rate, repos.HouseholdCategory, catalogProvider)
 	tgRouter := router.NewRouter(tgBot.GetUpdates(),
 		tgHandler,
 		nil,

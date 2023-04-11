@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"domain"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -92,4 +93,59 @@ func TestGetSubcategory(t *testing.T) {
 	// test active filter
 	titles := p.GetSubcategoryTitles("category1", true)
 	require.EqualValues(t, []string{"subcategory1", "subcategory2"}, titles)
+}
+
+func TestHasAt(t *testing.T) {
+
+	p := NewProvider()
+	items := []domain.HouseholdCategory{
+		{
+			Title: "category1",
+			Subcategories: []domain.Subcategory{
+				{Title: "subcategory1",
+					Products: []domain.HouseholdProduct{
+						{Name: "1"},
+						{Name: "2"},
+						{Name: "3"},
+					}},
+			},
+			Rank: 0,
+		},
+	}
+
+	p.Load(items)
+
+	require.True(t, p.HasAt("category1", "subcategory1", 0))
+	require.True(t, p.HasAt("category1", "subcategory1", 1))
+	require.True(t, p.HasAt("category1", "subcategory1", 2))
+	require.False(t, p.HasAt("category1", "subcategory1", 3))
+}
+func TestGetProductAt(t *testing.T) {
+	p := NewProvider()
+	items := []domain.HouseholdCategory{
+		{
+			Title: "category1",
+			Subcategories: []domain.Subcategory{
+				{Title: "subcategory1",
+					Products: []domain.HouseholdProduct{
+						{Name: "0"},
+						{Name: "1"},
+						{Name: "2"},
+					}},
+			},
+			Rank: 0,
+		},
+	}
+
+	p.Load(items)
+	cTitle, sTitle := "category1", "subcategory1"
+	p1, ok := p.GetProductAt(cTitle, sTitle, 0)
+	require.True(t, ok)
+	require.EqualValues(t, items[0].Subcategories[0].Products[0], p1)
+	p2, ok := p.GetProductAt(cTitle, sTitle, 1)
+	require.EqualValues(t, items[0].Subcategories[0].Products[1], p2)
+	require.True(t, ok)
+	p3, ok := p.GetProductAt(cTitle, sTitle, 2)
+	require.EqualValues(t, items[0].Subcategories[0].Products[2], p3)
+	require.True(t, ok)
 }

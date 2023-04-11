@@ -29,6 +29,35 @@ func (p *Provider) Load(items []domain.HouseholdCategory) {
 	}
 }
 
+func (p *Provider) GetProductAt(cTitle, sTitle string, offset int) (domain.HouseholdProduct, bool) {
+	if !p.HasAt(cTitle, sTitle, offset) {
+		return domain.HouseholdProduct{}, false
+	}
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	for _, c := range p.items {
+		for _, s := range c.Subcategories {
+			for ip, p := range s.Products {
+				if c.Title == cTitle && s.Title == sTitle && ip == offset {
+					return p, true
+				}
+			}
+		}
+	}
+	return domain.HouseholdProduct{}, false
+}
+
+func (p *Provider) HasAt(cTitle, sTitle string, offset int) bool {
+	subc, ok := p.GetSubcategory(cTitle, sTitle)
+	if !ok {
+		return false
+	}
+	if offset >= 0 && offset < len(subc.Products) {
+		return true
+	}
+	return false
+}
+
 func (p *Provider) GetCategory(title string) (domain.HouseholdCategory, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -69,7 +98,7 @@ func (p *Provider) GetSubcategory(cTitle, subcatTitle string) (domain.Subcategor
 
 func (p *Provider) GetSubcategoryTitles(cTitle string, active bool) []string {
 	p.mu.RLock()
-
+	defer p.mu.RUnlock()
 	var titles []string
 	for _, c := range p.items {
 		if c.Title == cTitle {

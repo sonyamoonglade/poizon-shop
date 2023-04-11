@@ -8,11 +8,12 @@ import (
 	"sync"
 	"time"
 
-	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"go.uber.org/zap"
 	"household_bot/internal/telegram/callback"
 	"household_bot/internal/telegram/tg_errors"
 	"logger"
+
+	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"go.uber.org/zap"
 )
 
 var (
@@ -26,6 +27,7 @@ type RouteHandler interface {
 
 	Categories(ctx context.Context, chatID int64, prevMsgID int, onlyAvailableInStock bool) error
 	Subcategories(ctx context.Context, chatID int64, prevMsgID int, args []string) error
+	SubcategoriesNew(ctx context.Context, chatID int64, msgIDForDeletion int, args []string) error
 	Products(ctx context.Context, chatID int64, prevMsgID int, args []string) error
 	AnswerCallback(c *tg.CallbackQuery) error
 }
@@ -156,13 +158,15 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 		if len(parsedArgs) > 0 {
 			return r.handler.Catalog(ctx, chatID, &msgID)
 		}
-		return r.handler.Catalog(ctx, chatID, nil)
+		return r.handler.Catalog(ctx, chatID, &msgID)
 	case callback.CTypeInStock:
 		return r.handler.Categories(ctx, chatID, msgID, true)
 	case callback.CTypeOrder:
 		return r.handler.Categories(ctx, chatID, msgID, false)
 	case callback.SelectCategory:
 		return r.handler.Subcategories(ctx, chatID, msgID, parsedArgs)
+	case callback.FromCarouselToSubcategory:
+		return r.handler.SubcategoriesNew(ctx, chatID, msgID, parsedArgs)
 	case callback.SelectSubcategory:
 		return r.handler.Products(ctx, chatID, msgID, parsedArgs)
 	default:

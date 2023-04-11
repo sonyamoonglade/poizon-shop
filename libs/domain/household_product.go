@@ -8,6 +8,7 @@ import (
 
 var (
 	ErrProductsNotFound = errors.New("no products")
+	ErrProductNotFound  = errors.New("product not found")
 )
 
 type HouseholdProduct struct {

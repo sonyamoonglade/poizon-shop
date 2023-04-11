@@ -4,10 +4,12 @@ import (
 	"context"
 	"strconv"
 
-	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"household_bot/internal/telegram/buttons"
 	"household_bot/internal/telegram/callback"
+	"household_bot/internal/telegram/templates"
 	"household_bot/internal/telegram/tg_errors"
+
+	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, onlyAvailableInStock bool) error {
@@ -37,6 +39,47 @@ func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, o
 	return h.cleanSend(editMsg)
 }
 
+func (h *handler) SubcategoriesNew(ctx context.Context, chatID int64, msgIDForDeletion int, args []string) error {
+	onlyAvailableInStock, err := strconv.ParseBool(args[1])
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "SubcategoriesNew",
+			CausedBy:    "ParseBool",
+		})
+	}
+
+	cTitle := args[0]
+	category, err := h.householdCategoryRepo.GetByTitle(ctx, cTitle)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "SubcategoriesNew",
+			CausedBy:    "GetByTitle",
+		})
+	}
+
+	var subcategoryTitles []string
+	for _, s := range category.Subcategories {
+		if s.Active {
+			subcategoryTitles = append(subcategoryTitles, s.Title)
+		}
+	}
+	cb := callback.CTypeOrder
+	if onlyAvailableInStock {
+		cb = callback.CTypeInStock
+	}
+	if err := h.bot.CleanRequest(tg.NewDeleteMessage(chatID, msgIDForDeletion)); err != nil {
+		//todo: errchek
+		return err
+	}
+	// To prev step, reInject inStock and cTitle
+	backButton := buttons.NewBackButton(cb, &cTitle, &onlyAvailableInStock)
+	keyboard := buttons.NewSubcategoryButtons(cTitle, subcategoryTitles, callback.SelectSubcategory, onlyAvailableInStock, backButton)
+	newMsg := tg.NewMessage(chatID, "Подкатегории")
+	newMsg.ReplyMarkup = &keyboard
+	return h.cleanSend(newMsg)
+}
 func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int, args []string) error {
 	onlyAvailableInStock, err := strconv.ParseBool(args[1])
 	if err != nil {
@@ -86,6 +129,15 @@ func (h *handler) Products(ctx context.Context, chatID int64, prevMsgID int, arg
 	}
 	cTitle := args[0]
 	sTitle := args[1]
+	// p, ok := h.catalogProvider.GetProductAt(cTitle, sTitle, 0)
+	// if !ok {
+	// 	return tg_errors.New(tg_errors.Config{
+	// 		OriginalErr: domain.ErrProductNotFound,
+	// 		Handler:     "Products",
+	// 		CausedBy:    "GetProductAt",
+	// 	})
+	// }
+
 	products, err := h.householdCategoryRepo.GetProductsByCategoryAndSubcategory(ctx, cTitle, sTitle, onlyAvailableInStock)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
@@ -94,9 +146,27 @@ func (h *handler) Products(ctx context.Context, chatID int64, prevMsgID int, arg
 			CausedBy:    "GetProductsByCategoryAndSubcategory",
 		})
 	}
-	//todo: edit msg, render nicely as scroll
-	for _, p := range products {
-		h.sendMessage(chatID, p.Name+" "+p.ISBN)
+	product := products[0]
+	f := tg.NewPhoto(chatID, tg.FileURL("https://picsum.photos/200"))
+	f.Caption = templates.HouseholdProductCaption(product)
+	nextTitle := "next"
+	backButton := buttons.NewBackButton(callback.FromCarouselToSubcategory, &cTitle, &onlyAvailableInStock)
+	keyboard := buttons.NewProductCarouselButtons(buttons.ProductCarouselButtonsArgs{
+		CTitle:     cTitle,
+		STitle:     sTitle,
+		InStock:    onlyAvailableInStock,
+		CurrOffset: 0,          // default
+		HasNext:    true,       // testing purpose
+		HasPrev:    false,      // testing
+		NextTitle:  &nextTitle, //testing
+		PrevTitle:  nil,        // testing
+		Back:       backButton,
+	})
+	f.ReplyMarkup = keyboard
+	// delete prev msg
+	if err := h.bot.CleanRequest(tg.NewDeleteMessage(chatID, prevMsgID)); err != nil {
+		// todo: errchek
+		return err
 	}
-	return nil
+	return h.cleanSend(f)
 }
