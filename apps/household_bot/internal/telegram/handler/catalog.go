@@ -15,7 +15,7 @@ import (
 )
 
 func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, onlyAvailableInStock bool) error {
-	categories, err := h.householdCategoryRepo.GetAll(ctx)
+	categories, err := h.categoryRepo.GetAll(ctx)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -41,58 +41,6 @@ func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, o
 	return h.cleanSend(editMsg)
 }
 
-func (h *handler) ProductsNew(ctx context.Context, chatID int64, msgIDForDeletion int, args []string) error {
-	var (
-		cTitle,
-		sTitle,
-		inStockStr = args[0], args[1], args[2]
-	)
-	inStock, err := strconv.ParseBool(inStockStr)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "ProductsNew",
-			CausedBy:    "ParseBool",
-		})
-	}
-	// p, ok := h.catalogProvider.GetProductAt(cTitle, sTitle, 0)
-	// if !ok {
-	// 	return tg_errors.New(tg_errors.Config{
-	// 		OriginalErr: domain.ErrProductNotFound,
-	// 		Handler:     "Products",
-	// 		CausedBy:    "GetProductAt",
-	// 	})
-	// }
-
-	products, err := h.householdCategoryRepo.GetProductsByCategoryAndSubcategory(ctx, cTitle, sTitle, inStock)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "ProductsNew",
-			CausedBy:    "GetProductsByCategoryAndSubcategory",
-		})
-	}
-	backButton := buttons.NewBackButton(callback.SelectCategory, &cTitle, &sTitle, &inStock)
-	keyboard := buttons.NewProductsButtons(buttons.ProductButtonsArgs{
-		CTitle:  cTitle,
-		STitle:  sTitle,
-		Cb:      callback.SelectProduct,
-		InStock: inStock,
-		Names: functools.Map(func(p domain.HouseholdProduct, _ int) string {
-			return p.Name
-		}, products),
-		Back: backButton,
-	})
-	msg := tg.NewMessage(chatID, "Доутспные товары")
-	msg.ReplyMarkup = keyboard
-	// del card
-	if err := h.bot.CleanRequest(tg.NewDeleteMessage(chatID, msgIDForDeletion)); err != nil {
-		//todo: handler rr
-		return err
-	}
-	return h.cleanSend(msg)
-
-}
 func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int, args []string) error {
 	onlyAvailableInStock, err := strconv.ParseBool(args[1])
 	if err != nil {
@@ -104,7 +52,7 @@ func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int
 	}
 
 	cTitle := args[0]
-	category, err := h.householdCategoryRepo.GetByTitle(ctx, cTitle)
+	category, err := h.categoryRepo.GetByTitle(ctx, cTitle)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -132,7 +80,12 @@ func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int
 }
 
 func (h *handler) Products(ctx context.Context, chatID int64, prevMsgID int, args []string) error {
-	onlyAvailableInStock, err := strconv.ParseBool(args[2])
+	var (
+		cTitle,
+		sTitle,
+		inStockStr = args[0], args[1], args[2]
+	)
+	inStock, err := strconv.ParseBool(inStockStr)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -140,8 +93,7 @@ func (h *handler) Products(ctx context.Context, chatID int64, prevMsgID int, arg
 			CausedBy:    "ParseBool",
 		})
 	}
-	cTitle := args[0]
-	sTitle := args[1]
+
 	// p, ok := h.catalogProvider.GetProductAt(cTitle, sTitle, 0)
 	// if !ok {
 	// 	return tg_errors.New(tg_errors.Config{
@@ -150,32 +102,24 @@ func (h *handler) Products(ctx context.Context, chatID int64, prevMsgID int, arg
 	// 		CausedBy:    "GetProductAt",
 	// 	})
 	// }
-
-	products, err := h.householdCategoryRepo.GetProductsByCategoryAndSubcategory(ctx, cTitle, sTitle, onlyAvailableInStock)
+	backButton := buttons.NewBackButton(callback.SelectCategory, &cTitle, nil, &inStock)
+	c, err := h.fetchProductsAndGetChattable(ctx, chatID, true, &prevMsgID, backButton, cTitle, sTitle, inStock)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "Products",
-			CausedBy:    "GetProductsByCategoryAndSubcategory",
+			CausedBy:    "fetchProductsAndGetChattable",
 		})
 	}
-	backButton := buttons.NewBackButton(callback.SelectCategory, &cTitle, nil, &onlyAvailableInStock)
-	keyboard := buttons.NewProductsButtons(buttons.ProductButtonsArgs{
-		CTitle:  cTitle,
-		STitle:  sTitle,
-		Cb:      callback.SelectProduct,
-		InStock: onlyAvailableInStock,
-		Names: functools.Map(func(p domain.HouseholdProduct, _ int) string {
-			return p.Name
-		}, products),
-		Back: backButton,
-	})
-	editMsg := tg.NewEditMessageText(chatID, prevMsgID, "Доутспные товары")
-	editMsg.ReplyMarkup = &keyboard
-	return h.cleanSend(editMsg)
+	return h.cleanSend(c)
 }
 
 func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, args []string) error {
+	/// delete prev
+	if err := h.bot.CleanRequest(tg.NewDeleteMessage(chatID, prevMsgID)); err != nil {
+		// handle err
+		return err
+	}
 	var (
 		cTitle,
 		sTitle,
@@ -191,7 +135,7 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 		})
 	}
 	// Todo: replace with catalog provider
-	products, err := h.householdCategoryRepo.GetProductsByCategoryAndSubcategory(ctx, cTitle, sTitle, inStock)
+	products, err := h.categoryRepo.GetProductsByCategoryAndSubcategory(ctx, cTitle, sTitle, inStock)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -209,16 +153,113 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 
 	photo := tg.NewPhoto(chatID, tg.FileURL("https://picsum.photos/200/300"))
 	photo.Caption = templates.HouseholdProductCaption(p)
-	backButton := buttons.NewBackButton(callback.FromProductCardToProducts,
-		&cTitle,
-		&sTitle,
-		&inStock)
-	keyboard := tg.NewInlineKeyboardMarkup(backButton.ToRow())
-	photo.ReplyMarkup = keyboard
-	/// delete prev
-	if err := h.bot.CleanRequest(tg.NewDeleteMessage(chatID, prevMsgID)); err != nil {
-		// handle err
+	photo.ReplyMarkup = buttons.NewProductCardButtons(buttons.ProductCardButtonsArgs{
+		Cb:      callback.AddToCart,
+		CTitle:  cTitle,
+		STitle:  sTitle,
+		PName:   productName,
+		InStock: inStock,
+		Back: buttons.NewBackButton(callback.FromProductCardToProducts,
+			&cTitle,
+			&sTitle,
+			&inStock,
+		),
+	})
+
+	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateWaitingToAddToCart); err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "ProductCard",
+			CausedBy:    "UpdateState",
+		})
+	}
+
+	return h.cleanSend(photo)
+}
+
+func (h *handler) ProductsNew(ctx context.Context, chatID int64, msgIDForDeletion int, args []string) error {
+	var (
+		cTitle,
+		sTitle,
+		inStockStr = args[0], args[1], args[2]
+	)
+	if err := h.bot.CleanRequest(tg.NewDeleteMessage(chatID, msgIDForDeletion)); err != nil {
+		//todo: handler rr
 		return err
 	}
-	return h.cleanSend(photo)
+	inStock, err := strconv.ParseBool(inStockStr)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "ProductsNew",
+			CausedBy:    "ParseBool",
+		})
+	}
+	// p, ok := h.catalogProvider.GetProductAt(cTitle, sTitle, 0)
+	// if !ok {
+	// 	return tg_errors.New(tg_errors.Config{
+	// 		OriginalErr: domain.ErrProductNotFound,
+	// 		Handler:     "Products",
+	// 		CausedBy:    "GetProductAt",
+	// 	})
+	// }
+	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateDefault); err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "ProductsNew",
+			CausedBy:    "UpdateState",
+		})
+	}
+
+	backButton := buttons.NewBackButton(callback.SelectCategory, &cTitle, &sTitle, &inStock)
+	c, err := h.fetchProductsAndGetChattable(ctx, chatID, false, nil, backButton, cTitle, sTitle, inStock)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "ProductsNew",
+			CausedBy:    "fetchProductsAndGetChattable",
+		})
+	}
+	return h.cleanSend(c)
+}
+
+func (h *handler) fetchProductsAndGetChattable(ctx context.Context,
+	chatID int64,
+	edit bool,
+	editMsgID *int,
+	backButton buttons.BackButton,
+	cTitle,
+	sTitle string,
+	inStock bool,
+) (tg.Chattable, error) {
+	products, err := h.categoryRepo.GetProductsByCategoryAndSubcategory(ctx, cTitle, sTitle, inStock)
+	if err != nil {
+		return nil, tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "fetchProductsAndGetChattable",
+			CausedBy:    "GetProductsByCategoryAndSubcategory",
+		})
+	}
+	keyboard := buttons.NewProductsButtons(buttons.ProductButtonsArgs{
+		CTitle:  cTitle,
+		STitle:  sTitle,
+		Cb:      callback.SelectProduct,
+		InStock: inStock,
+		Names: functools.Map(func(p domain.HouseholdProduct, _ int) string {
+			return p.Name
+		}, products),
+		Back: backButton,
+	})
+	var c tg.Chattable
+	if edit && editMsgID != nil {
+		m := tg.NewEditMessageText(chatID, *editMsgID, "Доступные товары")
+		m.ReplyMarkup = &keyboard
+		c = m
+
+	} else {
+		m := tg.NewMessage(chatID, "Дотспные товары")
+		m.ReplyMarkup = keyboard
+		c = m
+	}
+	return c, nil
 }

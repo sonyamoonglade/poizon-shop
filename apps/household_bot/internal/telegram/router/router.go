@@ -21,15 +21,17 @@ var (
 )
 
 type RouteHandler interface {
-	Start(ctx context.Context, chatID int64) error
+	Start(ctx context.Context, message *tg.Message) error
 	Menu(ctx context.Context, chatID int64) error
 	Catalog(ctx context.Context, chatID int64, prevMsgID *int) error
+	GetCart(ctx context.Context, chatID int64) error
 
 	Categories(ctx context.Context, chatID int64, prevMsgID int, onlyAvailableInStock bool) error
 	Subcategories(ctx context.Context, chatID int64, prevMsgID int, args []string) error
 	ProductsNew(ctx context.Context, chatID int64, msgIDForDeletion int, args []string) error
 	Products(ctx context.Context, chatID int64, prevMsgID int, args []string) error
 	ProductCard(ctx context.Context, chatID int64, prevMsgID int, args []string) error
+	AddToCart(ctx context.Context, chatID int64, args []string) error
 
 	AnswerCallback(c *tg.CallbackQuery) error
 }
@@ -123,7 +125,7 @@ func (r *Router) mapToCommandHandler(ctx context.Context, m *tg.Message) error {
 
 	switch {
 	case cmd(Start):
-		return r.handler.Start(ctx, chatID)
+		return r.handler.Start(ctx, m)
 	case cmd(Menu):
 		return r.handler.Menu(ctx, chatID)
 	default:
@@ -157,10 +159,9 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 	case callback.NoOpCallback:
 		return nil
 	case callback.Catalog:
-		if len(parsedArgs) > 0 {
-			return r.handler.Catalog(ctx, chatID, &msgID)
-		}
 		return r.handler.Catalog(ctx, chatID, &msgID)
+	case callback.MyCart:
+		return r.handler.GetCart(ctx, chatID)
 	case callback.CTypeInStock:
 		return r.handler.Categories(ctx, chatID, msgID, true)
 	case callback.CTypeOrder:
@@ -173,6 +174,8 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 		return r.handler.Products(ctx, chatID, msgID, parsedArgs)
 	case callback.SelectProduct:
 		return r.handler.ProductCard(ctx, chatID, msgID, parsedArgs)
+	case callback.AddToCart:
+		return r.handler.AddToCart(ctx, chatID, parsedArgs)
 	default:
 		return ErrNoHandler
 	}

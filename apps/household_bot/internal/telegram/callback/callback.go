@@ -12,6 +12,7 @@ const (
 	NoOpCallback Callback = iota
 	Catalog
 	MyOrders
+	MyCart
 	Faq
 	CTypeOrder
 	CTypeInStock
@@ -19,6 +20,8 @@ const (
 	SelectSubcategory
 	SelectProduct
 	FromProductCardToProducts
+	AddToCart
+	AcceptPayment
 )
 
 func (c Callback) string() string {

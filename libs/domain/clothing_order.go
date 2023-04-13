@@ -22,7 +22,7 @@ type ClothingOrder struct {
 	IsExpress       bool               `json:"isExpress" bson:"isExpress"`
 }
 
-func NewOrder(customer ClothingCustomer,
+func NewClothingOrder(customer ClothingCustomer,
 	deliveryAddress string,
 	isExpress bool,
 	shortID string) ClothingOrder {

@@ -148,12 +148,7 @@ func (r *householdCategoryRepo) GetProductsByCategoryAndSubcategory(ctx context.
 	sTitle string,
 	availableInStock bool) ([]domain.HouseholdProduct, error) {
 
-	filter := bson.M{"$and": []bson.M{
-		{"title": cTitle},
-		{"subcategories.title": sTitle},
-		{"subcategories.products.availableInStock": availableInStock},
-	}}
-
+	filter := bson.M{"title": cTitle}
 	fields := bson.M{
 		"subcategories": 1,
 	}
@@ -170,10 +165,22 @@ func (r *householdCategoryRepo) GetProductsByCategoryAndSubcategory(ctx context.
 		Subcategories []domain.Subcategory `bson:"subcategories"`
 	}
 	var resp productsResp
+
 	if err := res.Decode(&resp); err != nil {
 		return nil, err
 	}
-	return resp.Subcategories[0].Products, nil
+	var products []domain.HouseholdProduct
+	for _, sub := range resp.Subcategories {
+		if sub.Title == sTitle {
+			for _, p := range sub.Products {
+				if p.AvailableInStock == availableInStock {
+					products = append(products, p)
+				}
+			}
+		}
+	}
+
+	return products, nil
 }
 
 func (r *householdCategoryRepo) runOnChangeHook(ctx context.Context) error {

@@ -18,6 +18,16 @@ type ClothingCustomer interface {
 	Update(ctx context.Context, customerID primitive.ObjectID, dto dto.UpdateClothingCustomerDTO) error
 	Delete(ctx context.Context, customerID primitive.ObjectID) error
 }
+
+type HouseholdCustomer interface {
+	GetByTelegramID(ctx context.Context, telegramID int64) (domain.HouseholdCustomer, error)
+	All(ctx context.Context) ([]domain.HouseholdCustomer, error)
+	Save(ctx context.Context, c domain.HouseholdCustomer) error
+	UpdateState(ctx context.Context, telegramID int64, newState domain.State) error
+	Update(ctx context.Context, customerID primitive.ObjectID, dto dto.UpdateHouseholdCustomerDTO) error
+	Delete(ctx context.Context, customerID primitive.ObjectID) error
+}
+
 type Order[T domain.ClothingOrder | domain.HouseholdOrder] interface {
 	GetByShortID(ctx context.Context, shortID string) (T, error)
 	GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID) ([]T, error)

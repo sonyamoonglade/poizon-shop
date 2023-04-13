@@ -27,14 +27,14 @@ type Bot interface {
 
 type handler struct {
 	b               Bot
-	customerRepo    repositories.Customer
+	customerRepo    repositories.ClothingCustomer
 	rateProvider    RateProvider
 	orderService    services.Order
 	catalogProvider *catalog.CatalogProvider
 }
 
 func NewHandler(bot Bot,
-	customerRepo repositories.Customer,
+	customerRepo repositories.ClothingCustomer,
 	orderService services.Order,
 	rateProvider RateProvider,
 	catalogProvider *catalog.CatalogProvider) *handler {

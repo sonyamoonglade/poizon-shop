@@ -23,6 +23,9 @@ func menu() tg.InlineKeyboardMarkup {
 		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Мои заказы", callback.Inject(callback.MyOrders)),
 		),
+		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Посмотреть корзину", callback.Inject(callback.MyCart)),
+		),
 	)
 }
 

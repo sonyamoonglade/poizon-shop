@@ -2,6 +2,14 @@ package domain
 
 type HouseholdCart []HouseholdProduct
 
+func (c *HouseholdCart) Clear() {
+	*c = nil
+}
+
+func (c *HouseholdCart) IsEmpty() bool {
+	return len(*c) == 0
+}
+
 func (c *HouseholdCart) Add(p HouseholdProduct) {
 	*c = append(*c, p)
 }

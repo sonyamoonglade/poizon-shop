@@ -22,7 +22,7 @@ func NewClothingCustomerRepo(db *mongo.Collection) *clothingCustomerRepo {
 	}
 }
 
-func (c *clothingCustomerRepo) Save(ctx context.Context, customer domain.Customer) error {
+func (c *clothingCustomerRepo) Save(ctx context.Context, customer domain.ClothingCustomer) error {
 	if _, err := c.customers.InsertOne(ctx, customer); err != nil {
 		return err
 	}
@@ -44,6 +44,7 @@ func (c *clothingCustomerRepo) NullifyCatalogOffsets(ctx context.Context) error 
 }
 
 func (c *clothingCustomerRepo) Update(ctx context.Context, customerID primitive.ObjectID, dto dto.UpdateClothingCustomerDTO) error {
+
 	update := bson.M{}
 	if dto.Cart != nil {
 		update["cart"] = *dto.Cart
@@ -100,33 +101,23 @@ func (c *clothingCustomerRepo) Update(ctx context.Context, customerID primitive.
 
 func (c *clothingCustomerRepo) UpdateState(ctx context.Context, telegramID int64, newState domain.State) error {
 	filter := bson.M{"telegramId": telegramID}
-	updateQuery := bson.D{
-		bson.E{
-			Key: "$set",
-			Value: bson.M{
-				"state": newState,
-			},
-		},
-	}
+	updateQuery := bson.M{"$set": bson.M{"state": newState}}
 	_, err := c.customers.UpdateOne(ctx, filter, updateQuery)
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
-func (c *clothingCustomerRepo) GetByTelegramID(ctx context.Context, telegramID int64) (domain.Customer, error) {
+func (c *clothingCustomerRepo) GetByTelegramID(ctx context.Context, telegramID int64) (domain.ClothingCustomer, error) {
 	query := bson.M{"telegramId": telegramID}
 	res := c.customers.FindOne(ctx, query)
 	if err := res.Err(); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return domain.Customer{}, domain.ErrCustomerNotFound
+			return domain.ClothingCustomer{}, domain.ErrCustomerNotFound
 		}
-		return domain.Customer{}, err
+		return domain.ClothingCustomer{}, err
 	}
-	var customer domain.Customer
+	var customer domain.ClothingCustomer
 	if err := res.Decode(&customer); err != nil {
-		return domain.Customer{}, fmt.Errorf("cant decode customer: %w", err)
+		return domain.ClothingCustomer{}, fmt.Errorf("cant decode customer: %w", err)
 	}
 	return customer, nil
 }
@@ -138,7 +129,7 @@ func (c *clothingCustomerRepo) GetState(ctx context.Context, telegramID int64) (
 	return customer.TgState, nil
 }
 
-func (c *clothingCustomerRepo) All(ctx context.Context) ([]domain.Customer, error) {
+func (c *clothingCustomerRepo) All(ctx context.Context) ([]domain.ClothingCustomer, error) {
 	res, err := c.customers.Find(ctx, bson.D{})
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -146,7 +137,7 @@ func (c *clothingCustomerRepo) All(ctx context.Context) ([]domain.Customer, erro
 		}
 		return nil, err
 	}
-	var customers []domain.Customer
+	var customers []domain.ClothingCustomer
 	if err := res.All(ctx, &customers); err != nil {
 		return nil, err
 	}

@@ -42,18 +42,21 @@ require (
 require (
 	domain v0.0.0
 	dto v0.0.0 // indirect
-	functools v0.0.0 // indirect
+	functools v0.0.0
 	github.com/klauspost/compress v1.16.3 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/text v0.8.0 // indirect
 	logger v0.0.0
+	redis v0.0.0
 	repositories v0.0.0
+	services v0.0.0
 )
 
 replace (
 	domain v0.0.0 => ../../libs/domain
 	dto v0.0.0 => ../../libs/dto
+	redis => ../../libs/redis
 	functools v0.0.0 => ../../libs/functools
 	logger v0.0.0 => ../../libs/logger
 	nanoid => ../../libs/nanoid

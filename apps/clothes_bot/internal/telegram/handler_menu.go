@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"domain"
+	"domain
 	"functools"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"utils/ranges"

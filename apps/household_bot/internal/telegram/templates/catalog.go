@@ -1,12 +1,14 @@
 package templates
 
 import (
-	"domain"
 	"fmt"
+
+	"domain"
 )
 
 const (
-	productTemplate = "nazv: %s\nisbn: %s\nprice: %d\npriceGlob: %d\n\nsettings: %s\nnalichee: %s\n"
+	productTemplate       = "nazv: %s\nisbn: %s\nprice: %d\npriceGlob: %d\n\nsettings: %s\nnalichee: %s\n"
+	positionAddedTemplate = "Позиция %s успешно добавлена"
 )
 
 func HouseholdProductCaption(hp domain.HouseholdProduct) string {
@@ -18,6 +20,10 @@ func HouseholdProductCaption(hp domain.HouseholdProduct) string {
 		hp.Settings,
 		formatBool(hp.AvailableInStock),
 	)
+}
+
+func PositionAdded(name string) string {
+	return fmt.Sprintf(positionAddedTemplate, name)
 }
 
 func formatBool(b bool) string {

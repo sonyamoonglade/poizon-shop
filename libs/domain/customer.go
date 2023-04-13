@@ -30,6 +30,7 @@ var (
 	StateWaitingForFIO                 = State{11}
 	StateWaitingForPhoneNumber         = State{12}
 	StateWaitingForDeliveryAddress     = State{13}
+	StateWaitingToAddToCart            = State{14}
 )
 
 var (

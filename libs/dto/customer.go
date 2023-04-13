@@ -15,3 +15,12 @@ type UpdateClothingCustomerDTO struct {
 	State          *domain.State
 	CatalogOffset  *uint
 }
+
+type UpdateHouseholdCustomerDTO struct {
+	Username    *string
+	FullName    *string
+	PhoneNumber *string
+	Meta        *domain.Meta
+	Cart        *domain.HouseholdCart
+	State       *domain.State
+}

@@ -11,16 +11,23 @@ import (
 	"repositories"
 )
 
-type orderService struct {
-	repo repositories.Order
+type orderService[T domain.HouseholdOrder | domain.ClothingOrder] struct {
+	repo repositories.Order[T]
 }
 
-func NewOrderService(repo repositories.Order) *orderService {
-	return &orderService{
+func NewClothingOrderService(repo repositories.Order[domain.ClothingOrder]) *orderService[domain.ClothingOrder] {
+	return &orderService[domain.ClothingOrder]{
 		repo: repo,
 	}
 }
-func (o *orderService) GetFreeShortID(ctx context.Context) (string, error) {
+
+func NewHouseholdOrderService(repo repositories.Order[domain.HouseholdOrder]) *orderService[domain.HouseholdOrder] {
+	return &orderService[domain.HouseholdOrder]{
+		repo: repo,
+	}
+}
+
+func (o *orderService[T]) GetFreeShortID(ctx context.Context) (string, error) {
 	for {
 		shortID := nanoid.GenerateNanoID()
 		_, err := o.repo.GetByShortID(ctx, shortID)
@@ -35,14 +42,14 @@ func (o *orderService) GetFreeShortID(ctx context.Context) (string, error) {
 	}
 }
 
-func (o *orderService) Save(ctx context.Context, order domain.ClothingOrder) error {
+func (o *orderService[T]) Save(ctx context.Context, order T) error {
 	return o.repo.Save(ctx, order)
 }
 
-func (o *orderService) UpdateToPaid(ctx context.Context, customerID primitive.ObjectID, shortID string) error {
+func (o *orderService[T]) UpdateToPaid(ctx context.Context, customerID primitive.ObjectID, shortID string) error {
 	return o.repo.UpdateToPaid(ctx, customerID, shortID)
 }
 
-func (o *orderService) GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID) ([]domain.ClothingOrder, error) {
+func (o *orderService[T]) GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID) ([]T, error) {
 	return o.repo.GetAllForCustomer(ctx, customerID)
 }

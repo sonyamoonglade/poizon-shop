@@ -7,6 +7,7 @@ import (
 
 type Repositories struct {
 	ClothingCustomer  *clothingCustomerRepo
+	HouseholdCustomer *householdCustomerRepo
 	ClothingOrder     *orderRepo[domain.ClothingOrder]
 	HouseholdOrder    *orderRepo[domain.HouseholdOrder]
 	ClothingCatalog   *clothingCatalogRepo
@@ -28,6 +29,7 @@ const (
 func NewRepositories(db *database.Mongo, clothingOnChange ClothingOnChangeFunc, householdOnChange HouseholdOnChangeFunc) Repositories {
 	return Repositories{
 		ClothingCustomer:  NewClothingCustomerRepo(db.Collection(customers)),
+		HouseholdCustomer: NewHouseholdCustomerRepo(db.Collection(customersHH)),
 		ClothingOrder:     NewClothingOrderRepo(db.Collection(orders)),
 		HouseholdOrder:    NewHouseholdOrderRepo(db.Collection(ordersHH)),
 		ClothingCatalog:   NewClothingCatalogRepo(db.Collection(catalog), clothingOnChange),

@@ -64,6 +64,7 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	logger v0.0.0 // indirect
+	redis v0.0.0
 	repositories v0.0.0
 	utils v0.0.0
 	services v0.0.0
@@ -71,6 +72,7 @@ require (
 )
 
 replace (
+	redis v0.0.0 => ../../libs/redis
 	domain v0.0.0 => ../../libs/domain
 	dto v0.0.0 => ../../libs/dto
 	functools v0.0.0 => ../../libs/functools

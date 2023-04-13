@@ -29,9 +29,11 @@ require (
 	golang.org/x/text v0.3.7 // indirect
 	repositories v0.0.0
 	nanoid v0.0.0
+	redis v0.0.0
 )
 
 replace (
+	redis => ../redis
 	nanoid => ../nanoid
 	domain => ../domain
 	dto => ../dto

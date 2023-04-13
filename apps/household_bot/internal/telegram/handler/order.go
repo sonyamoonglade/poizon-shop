@@ -1,4 +1,4 @@
-package telegram
+package handler
 
 import (
 	"context"
@@ -8,6 +8,9 @@ import (
 	"domain"
 	"dto"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"household_bot/internal/telegram/buttons"
+	"household_bot/internal/telegram/callback"
+	"household_bot/internal/telegram/templates"
 )
 
 func (h *handler) AskForFIO(ctx context.Context, chatID int64) error {
@@ -16,7 +19,7 @@ func (h *handler) AskForFIO(ctx context.Context, chatID int64) error {
 	if err := h.customerRepo.UpdateState(ctx, telegramID, domain.StateWaitingForFIO); err != nil {
 		return err
 	}
-	return h.sendMessage(chatID, askForFIOTemplate)
+	return h.sendMessage(chatID, templates.AskForFIO())
 }
 
 func (h *handler) HandleFIOInput(ctx context.Context, m *tg.Message) error {
@@ -26,7 +29,7 @@ func (h *handler) HandleFIOInput(ctx context.Context, m *tg.Message) error {
 		fullName   = strings.TrimSpace(m.Text)
 	)
 
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForFIO, chatID); err != nil {
+	if err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForFIO); err != nil {
 		return err
 	}
 
@@ -36,14 +39,13 @@ func (h *handler) HandleFIOInput(ctx context.Context, m *tg.Message) error {
 	}
 
 	if !domain.IsValidFullName(fullName) {
-		return h.sendMessage(chatID, invalidFIOInputTemplate)
+		return h.sendMessage(chatID, templates.InvalidFIO())
 	}
 
-	updateDTO := dto.UpdateClothingCustomerDTO{
+	updateDTO := dto.UpdateHouseholdCustomerDTO{
 		State:    &domain.StateWaitingForPhoneNumber,
 		FullName: &fullName,
 	}
-
 	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
@@ -52,7 +54,7 @@ func (h *handler) HandleFIOInput(ctx context.Context, m *tg.Message) error {
 		return err
 	}
 
-	return h.sendMessage(chatID, askForPhoneNumberTemplate)
+	return h.sendMessage(chatID, templates.AskForPhoneNumber())
 }
 
 func (h *handler) HandlePhoneNumberInput(ctx context.Context, m *tg.Message) error {
@@ -62,12 +64,12 @@ func (h *handler) HandlePhoneNumberInput(ctx context.Context, m *tg.Message) err
 		phoneNumber = strings.TrimSpace(m.Text)
 	)
 
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForPhoneNumber, chatID); err != nil {
+	if err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForPhoneNumber); err != nil {
 		return err
 	}
 
 	if !domain.IsValidPhoneNumber(phoneNumber) {
-		return h.sendMessage(chatID, "Неправильный формат номера телефона.\n"+askForPhoneNumberTemplate)
+		return h.sendMessage(chatID, "Неправильный формат номера телефона.\n"+templates.AskForPhoneNumber())
 	}
 
 	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
@@ -75,11 +77,10 @@ func (h *handler) HandlePhoneNumberInput(ctx context.Context, m *tg.Message) err
 		return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
 	}
 
-	updateDTO := dto.UpdateClothingCustomerDTO{
+	updateDTO := dto.UpdateHouseholdCustomerDTO{
 		State:       &domain.StateWaitingForDeliveryAddress,
 		PhoneNumber: &phoneNumber,
 	}
-
 	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
@@ -88,7 +89,7 @@ func (h *handler) HandlePhoneNumberInput(ctx context.Context, m *tg.Message) err
 		return err
 	}
 
-	return h.sendMessage(chatID, askForDeliveryAddressTemplate)
+	return h.sendMessage(chatID, templates.AskForDeliveryAddress())
 }
 
 func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message) error {
@@ -98,8 +99,7 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 		address    = strings.TrimSpace(m.Text)
 	)
 
-	// validate state
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForDeliveryAddress, chatID); err != nil {
+	if err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForDeliveryAddress); err != nil {
 		return err
 	}
 
@@ -108,12 +108,11 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 		return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
 	}
 
-	updateDTO := dto.UpdateClothingCustomerDTO{
-		LastPosition: &domain.ClothingPosition{},
-		Cart:         &domain.ClothingCart{},
-		State:        &domain.StateDefault,
+	customer.Cart.Clear()
+	updateDTO := dto.UpdateHouseholdCustomerDTO{
+		Cart:  &customer.Cart,
+		State: &domain.StateDefault,
 	}
-
 	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
@@ -124,7 +123,7 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 	}
 
 	isExpress := *customer.Meta.NextOrderType == domain.OrderTypeExpress
-	order := domain.NewClothingOrder(customer, address, isExpress, shortID)
+	order := domain.NewHouseholdOrder(customer, address, isExpress, shortID)
 
 	if err := h.orderService.Save(ctx, order); err != nil {
 		return err
@@ -133,7 +132,10 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 	return h.prepareOrderPreview(ctx, customer, order, chatID)
 }
 
-func (h *handler) prepareOrderPreview(ctx context.Context, customer domain.ClothingCustomer, order domain.ClothingOrder, chatID int64) error {
+func (h *handler) prepareOrderPreview(ctx context.Context,
+	customer domain.HouseholdCustomer,
+	order domain.HouseholdOrder,
+	chatID int64) error {
 	out := getOrderStart(orderStartArgs{
 		fullName:        *customer.FullName,
 		shortOrderID:    order.ShortID,
@@ -159,10 +161,8 @@ func (h *handler) prepareOrderPreview(ctx context.Context, customer domain.Cloth
 	if err := h.sendMessage(chatID, out); err != nil {
 		return err
 	}
-
-	updateDTO := dto.UpdateClothingCustomerDTO{
+	updateDTO := dto.UpdateHouseholdCustomerDTO{
 		Meta:  &domain.Meta{},
-		Cart:  new(domain.ClothingCart),
 		State: &domain.StateDefault,
 	}
 
@@ -170,13 +170,15 @@ func (h *handler) prepareOrderPreview(ctx context.Context, customer domain.Cloth
 		return err
 	}
 
-	requisitesMsg := tg.NewMessage(chatID, getRequisites(domain.AdminRequisites, order.ShortID))
-	sentRequisitesMsg, err := h.b.Send(requisitesMsg)
+	requisitesMsg := tg.NewMessage(chatID, templates.Requisites(order.ShortID, domain.AdminRequisites))
+	sentRequisitesMsg, err := h.bot.Send(requisitesMsg)
 	if err != nil {
 		return err
 	}
 
-	editButton := tg.NewEditMessageReplyMarkup(chatID, sentRequisitesMsg.MessageID, preparePaymentButton(order.ShortID))
+	editButton := tg.NewEditMessageReplyMarkup(chatID,
+		sentRequisitesMsg.MessageID,
+		buttons.NewPaymentButton(callback.AcceptPayment, order.ShortID))
 	return h.cleanSend(editButton)
 }
 

@@ -8,9 +8,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type Order interface {
-	GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID) ([]domain.ClothingOrder, error)
-	Save(ctx context.Context, order domain.ClothingOrder) error
+type Order[T domain.HouseholdOrder | domain.ClothingOrder] interface {
+	GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID) ([]T, error)
+	Save(ctx context.Context, order T) error
 	UpdateToPaid(ctx context.Context, customerID primitive.ObjectID, shortID string) error
 	GetFreeShortID(ctx context.Context) (string, error)
 }

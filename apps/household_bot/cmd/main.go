@@ -60,7 +60,7 @@ func run() error {
 		return fmt.Errorf("error creating telegram bot: %w", err)
 	}
 	catalogProvider := catalog.NewProvider()
-	tgHandler := handler.NewHandler(tgBot, repos.Rate, repos.HouseholdCategory, catalogProvider)
+	tgHandler := handler.NewHandler(tgBot, repos.Rate, repos, catalogProvider)
 	tgRouter := router.NewRouter(tgBot.GetUpdates(),
 		tgHandler,
 		nil,
