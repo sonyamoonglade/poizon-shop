@@ -6,13 +6,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type ClothingOrder struct {
+type HouseholdOrder struct {
 	OrderID         primitive.ObjectID `json:"orderId,omitempty" bson:"_id,omitempty"`
 	ShortID         string             `json:"shortId" bson:"shortId"`
-	Customer        ClothingCustomer   `json:"customer" bson:"customer"`
-	Cart            ClothingCart       `json:"cart" bson:"cart"`
-	AmountRUB       uint64             `json:"amountRub" bson:"amountRub"`
-	AmountYUAN      uint64             `json:"amountYuan" bson:"amountYuan"`
+	Customer        HouseholdCustomer  `json:"customer" bson:"customer"`
+	Cart            HouseholdCart      `json:"cart" bson:"cart"`
+	AmountRUB       uint32             `json:"amountRub" bson:"amountRub"`
 	DeliveryAddress string             `json:"deliveryAddress" bson:"deliveryAddress"`
 	Comment         *string            `json:"comment" bson:"comment"`
 	Status          Status             `json:"status" bson:"status"`
@@ -22,32 +21,24 @@ type ClothingOrder struct {
 	IsExpress       bool               `json:"isExpress" bson:"isExpress"`
 }
 
-func NewOrder(customer ClothingCustomer,
+func NewHouseholdOrder(customer HouseholdCustomer,
 	deliveryAddress string,
 	isExpress bool,
-	shortID string) ClothingOrder {
-	type total struct {
-		rub, yuan uint64
-	}
-	var totals total
+	shortID string) HouseholdOrder {
 
-	totals = functools.Reduce(func(t total, cartItem ClothingPosition) total {
-		t.yuan += cartItem.PriceYUAN
-		t.rub += cartItem.PriceRUB
-		return t
-	}, customer.Cart, total{})
+	amountRub := functools.Reduce(func(acc uint32, cartItem HouseholdProduct) uint32 {
+		acc += cartItem.Price
+		return acc
+	}, customer.Cart, 0)
 
-	return ClothingOrder{
+	return HouseholdOrder{
 		Customer:        customer,
 		ShortID:         shortID,
 		Cart:            customer.Cart,
-		AmountRUB:       totals.rub,
-		AmountYUAN:      totals.yuan,
+		AmountRUB:       amountRub,
 		DeliveryAddress: deliveryAddress,
-		IsPaid:          false,
 		IsExpress:       isExpress,
-		IsApproved:      false,
 		Status:          StatusNotApproved,
-		Source:          SourceClothing,
+		Source:          SourceHousehold,
 	}
 }

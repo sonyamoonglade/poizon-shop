@@ -8,6 +8,14 @@ require (
 )
 
 require (
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/redis/go-redis/v9 v9.0.3 // indirect
+	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect
+	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
+)
+
+require (
 	domain v0.0.0
 	dto v0.0.0
 	functools v0.0.0 // indirect
@@ -25,15 +33,16 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/text v0.3.7 // indirect
 	logger v0.0.0
-	nanoid v0.0.0
 	onlineshop/database v0.0.0
+	redis v0.0.0
 )
 
 replace (
 	domain v0.0.0 => ../domain
 	dto v0.0.0 => ../dto
-	nanoid v0.0.0 => ../nanoid
 	functools v0.0.0 => ../functools
 	logger v0.0.0 => ../logger
+	nanoid v0.0.0 => ../nanoid
 	onlineshop/database v0.0.0 => ../database
+	redis v0.0.0 => ../redis
 )

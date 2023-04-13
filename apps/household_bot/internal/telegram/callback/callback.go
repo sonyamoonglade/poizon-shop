@@ -17,9 +17,8 @@ const (
 	CTypeInStock
 	SelectCategory
 	SelectSubcategory
-	NextProduct
-	PrevProduct
-	FromCarouselToSubcategory
+	SelectProduct
+	FromProductCardToProducts
 )
 
 func (c Callback) string() string {

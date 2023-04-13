@@ -9,7 +9,7 @@ func (c *ClothingCart) Add(p ClothingPosition) {
 func (c *ClothingCart) Remove(positionID string) {
 	for i, p := range *c {
 		if p.PositionID.Hex() == positionID {
-			// swap to end and slice
+			// swap to end and cut
 			c.swap(i, len(*c)-1)
 			*c = (*c)[:len(*c)-1]
 			break

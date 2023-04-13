@@ -27,8 +27,10 @@ type RouteHandler interface {
 
 	Categories(ctx context.Context, chatID int64, prevMsgID int, onlyAvailableInStock bool) error
 	Subcategories(ctx context.Context, chatID int64, prevMsgID int, args []string) error
-	SubcategoriesNew(ctx context.Context, chatID int64, msgIDForDeletion int, args []string) error
+	ProductsNew(ctx context.Context, chatID int64, msgIDForDeletion int, args []string) error
 	Products(ctx context.Context, chatID int64, prevMsgID int, args []string) error
+	ProductCard(ctx context.Context, chatID int64, prevMsgID int, args []string) error
+
 	AnswerCallback(c *tg.CallbackQuery) error
 }
 
@@ -165,10 +167,12 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 		return r.handler.Categories(ctx, chatID, msgID, false)
 	case callback.SelectCategory:
 		return r.handler.Subcategories(ctx, chatID, msgID, parsedArgs)
-	case callback.FromCarouselToSubcategory:
-		return r.handler.SubcategoriesNew(ctx, chatID, msgID, parsedArgs)
+	case callback.FromProductCardToProducts:
+		return r.handler.ProductsNew(ctx, chatID, msgID, parsedArgs)
 	case callback.SelectSubcategory:
 		return r.handler.Products(ctx, chatID, msgID, parsedArgs)
+	case callback.SelectProduct:
+		return r.handler.ProductCard(ctx, chatID, msgID, parsedArgs)
 	default:
 		return ErrNoHandler
 	}

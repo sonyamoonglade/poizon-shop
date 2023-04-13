@@ -72,15 +72,16 @@ func (p ProductCard) ToRow() []tg.InlineKeyboardButton {
 }
 
 type BackButton struct {
-	c       callback.Callback
-	cTitle  *string
-	inStock *bool
+	c              callback.Callback
+	cTitle, sTitle *string
+	inStock        *bool
 }
 
-func NewBackButton(c callback.Callback, cTitle *string, inStock *bool) BackButton {
+func NewBackButton(c callback.Callback, cTitle, sTitle *string, inStock *bool) BackButton {
 	return BackButton{
 		c:       c,
 		cTitle:  cTitle,
+		sTitle:  sTitle,
 		inStock: inStock,
 	}
 }
@@ -91,11 +92,12 @@ const (
 
 func (b BackButton) ToRow() []tg.InlineKeyboardButton {
 	var data string
-	if b.cTitle != nil && b.inStock != nil {
+	if b.cTitle != nil && b.sTitle != nil && b.inStock != nil {
+		data = callback.Inject(b.c, *b.cTitle, *b.sTitle, strconv.FormatBool(*b.inStock))
+	} else if b.cTitle != nil && b.inStock != nil {
 		data = callback.Inject(b.c, *b.cTitle, strconv.FormatBool(*b.inStock))
 	} else if b.inStock != nil {
 		data = callback.Inject(b.c, strconv.FormatBool(*b.inStock))
 	}
-
 	return tg.NewInlineKeyboardRow(tg.NewInlineKeyboardButtonData(backButtonTitle, data))
 }
