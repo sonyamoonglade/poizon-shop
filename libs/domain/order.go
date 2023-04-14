@@ -2,15 +2,34 @@ package domain
 
 import (
 	"errors"
+	"fmt"
 	"math"
+	"strconv"
 )
 
+var ErrUnknownOrderType = errors.New("unknown order type")
+
 type OrderType int
+
+func NewOrderTypeFromString(s string) (OrderType, error) {
+	parsed, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, fmt.Errorf("strconv atoi: %w", err)
+	}
+	if parsed == int(OrderTypeExpress) || parsed == int(OrderTypeNormal) {
+		return OrderType(parsed), nil
+	}
+	return 0, ErrUnknownOrderType
+}
 
 const (
 	OrderTypeExpress OrderType = iota + 1
 	OrderTypeNormal
 )
+
+func (o OrderType) String() string {
+	return strconv.Itoa(int(o))
+}
 
 type Status int
 

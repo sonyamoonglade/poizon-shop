@@ -22,6 +22,7 @@ const (
 	FromProductCardToProducts
 	AddToCart
 	AcceptPayment
+	SelectOrderType
 )
 
 func (c Callback) string() string {

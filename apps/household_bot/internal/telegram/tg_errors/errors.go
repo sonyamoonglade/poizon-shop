@@ -2,7 +2,10 @@ package tg_errors
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+
+	"go.uber.org/multierr"
 )
 
 type Error struct {
@@ -29,6 +32,19 @@ type Config struct {
 }
 
 func New(c Config) *Error {
+	var tgError *Error
+	if errors.As(c.OriginalErr, &tgError) {
+		return &Error{
+			originalErr: multierr.Append(tgError.originalErr, c.OriginalErr),
+			context: struct {
+				handler  string
+				causedBy string
+			}{
+				handler:  c.Handler,
+				causedBy: prependCausedBy(tgError.context.causedBy, c.CausedBy),
+			},
+		}
+	}
 	return &Error{
 		originalErr: c.OriginalErr,
 		context: struct {
@@ -58,4 +74,8 @@ func (e *Error) ToJSON() (string, error) {
 		return "", fmt.Errorf("json marshal: %w", err)
 	}
 	return string(b), nil
+}
+
+func prependCausedBy(left, right string) string {
+	return left + ":" + right
 }

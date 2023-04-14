@@ -7,6 +7,8 @@ import (
 )
 
 const (
+	askForOrderTypeTemplate = "viberi tip zakaza"
+
 	askForDeliveryAddressTemplate = "Отправь адрес ближайшего постамата PickPoint или отделения СДЭК ⛳️ в формате:\n\n" +
 		"Страна, область, город, улица, номер дома/строения 🏡\n\n" +
 		"Я доставлю твой заказ туда 🚚"
@@ -63,4 +65,8 @@ func AskForDeliveryAddress() string {
 
 func Requisites(shortOrderID string, r domain.Requisites) string {
 	return fmt.Sprintf(requisitesTemplate, shortOrderID, r.SberID, r.TinkoffID, shortOrderID)
+}
+
+func AskForOrderType() string {
+	return askForOrderTypeTemplate
 }

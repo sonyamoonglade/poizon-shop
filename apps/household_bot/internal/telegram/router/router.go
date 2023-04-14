@@ -2,6 +2,7 @@ package router
 
 import (
 	"context"
+	"domain"
 	"errors"
 	"fmt"
 	"runtime/debug"
@@ -33,10 +34,18 @@ type RouteHandler interface {
 	ProductCard(ctx context.Context, chatID int64, prevMsgID int, args []string) error
 	AddToCart(ctx context.Context, chatID int64, args []string) error
 
+	AskForOrderType(ctx context.Context, chatID int64) error
+	HandleOrderTypeInput(ctx context.Context, chatID int64, args []string) error
+	HandleFIOInput(ctx context.Context, m *tg.Message) error
+	HandlePhoneNumberInput(ctx context.Context, m *tg.Message) error
+	HandleDeliveryAddressInput(ctx context.Context, m *tg.Message) error
+	HandlePayment(ctx context.Context, shortOrderID string, c *tg.CallbackQuery) error
+
 	AnswerCallback(c *tg.CallbackQuery) error
 }
 
 type StateProvider interface {
+	GetCustomerState(ctx context.Context, telegramID int64) (domain.State, error)
 }
 
 type Router struct {
@@ -129,7 +138,24 @@ func (r *Router) mapToCommandHandler(ctx context.Context, m *tg.Message) error {
 	case cmd(Menu):
 		return r.handler.Menu(ctx, chatID)
 	default:
-		return ErrNoHandler
+		state, err := r.stateProvider.GetCustomerState(ctx, chatID)
+		if err != nil {
+			return tg_errors.New(tg_errors.Config{
+				OriginalErr: err,
+				Handler:     "mapToCommandHandler",
+				CausedBy:    "GetCustomerState",
+			})
+		}
+		switch state {
+		case domain.StateWaitingForFIO:
+			return r.handler.HandleFIOInput(ctx, m)
+		case domain.StateWaitingForPhoneNumber:
+			return r.handler.HandlePhoneNumberInput(ctx, m)
+		case domain.StateWaitingForDeliveryAddress:
+			return r.handler.HandleDeliveryAddressInput(ctx, m)
+		default:
+			return ErrNoHandler
+		}
 	}
 }
 
@@ -176,6 +202,8 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 		return r.handler.ProductCard(ctx, chatID, msgID, parsedArgs)
 	case callback.AddToCart:
 		return r.handler.AddToCart(ctx, chatID, parsedArgs)
+	case callback.SelectOrderType:
+		return r.handler.HandleOrderTypeInput(ctx, chatID, parsedArgs)
 	default:
 		return ErrNoHandler
 	}
