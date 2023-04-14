@@ -6,6 +6,7 @@ import (
 
 	"domain"
 	"dto"
+	"functools"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"onlineshop/database"
 	"repositories"
@@ -39,7 +40,13 @@ func (h *householdCategoryService) New(ctx context.Context, title string) error 
 }
 
 func (h *householdCategoryService) Delete(ctx context.Context, categoryID primitive.ObjectID) error {
-	return h.repo.Delete(ctx, categoryID)
+	return h.transactor.WithTransaction(ctx, func(tx context.Context) error {
+		currentCategories, err := h.repo.GetAll(ctx)
+		if err != nil {
+			return fmt.Errorf("get all: %w", err)
+		}
+		return h.fixCategoriesRanks(tx, categoryID, currentCategories)
+	})
 }
 
 func (h *householdCategoryService) Update(ctx context.Context, categoryID primitive.ObjectID, dto dto.UpdateCategoryDTO) error {
@@ -51,4 +58,36 @@ func (h *householdCategoryService) GetAll(ctx context.Context) ([]domain.Househo
 }
 func (h *householdCategoryService) GetByID(ctx context.Context, categoryID primitive.ObjectID) (domain.HouseholdCategory, error) {
 	return h.repo.GetByID(ctx, categoryID)
+}
+
+// tx - transaction
+func (h *householdCategoryService) fixCategoriesRanks(tx context.Context, categoryID primitive.ObjectID, categories []domain.HouseholdCategory) error {
+	n := len(categories)
+	var foundIdx int
+	return functools.ForEach(func(category domain.HouseholdCategory, i int) error {
+		if category.CategoryID == categoryID {
+			// Few cases here:
+			foundIdx = i
+			// It's first and last element, if so - just delete it
+			if err := h.repo.Delete(tx, categoryID); err != nil {
+				return fmt.Errorf("for each, delete: %w", err)
+			}
+		}
+		// Don't do anything
+		if n == 1 {
+			return nil
+		} else {
+			// Starting from foundIdx reduce ranks by 1
+			if i > foundIdx {
+				newRank := category.Rank - 1
+				if err := h.repo.Update(tx, category.CategoryID, dto.UpdateCategoryDTO{
+					Rank: &newRank,
+				}); err != nil {
+					return fmt.Errorf("for each, update: %w", err)
+				}
+			}
+		}
+
+		return nil
+	}, categories)
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"clothes_bot/internal/catalog"
+	"domain"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"repositories"
 	"services"
@@ -29,13 +30,13 @@ type handler struct {
 	b               Bot
 	customerRepo    repositories.ClothingCustomer
 	rateProvider    RateProvider
-	orderService    services.Order
+	orderService    services.Order[domain.ClothingOrder]
 	catalogProvider *catalog.CatalogProvider
 }
 
 func NewHandler(bot Bot,
 	customerRepo repositories.ClothingCustomer,
-	orderService services.Order,
+	orderService services.Order[domain.ClothingOrder],
 	rateProvider RateProvider,
 	catalogProvider *catalog.CatalogProvider) *handler {
 	return &handler{

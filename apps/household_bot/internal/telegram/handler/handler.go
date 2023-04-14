@@ -54,3 +54,9 @@ func NewHandler(b Bot,
 func (h *handler) AnswerCallback(c *tg.CallbackQuery) error {
 	return h.cleanSend(tg.NewCallback(c.ID, ""))
 }
+
+const sorry = "Упс, что-то пошло не так."
+
+func (h *handler) Sorry(chatID int64) error {
+	return h.sendMessage(chatID, sorry)
+}

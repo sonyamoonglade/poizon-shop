@@ -10,6 +10,8 @@ var (
 	Menu        = menu()
 	Start       = start()
 	CatalogType = catalogType()
+	AddPosition = addPosition()
+	MakeOrder   = makeOrder()
 )
 
 func menu() tg.InlineKeyboardMarkup {
@@ -44,4 +46,18 @@ func catalogType() tg.InlineKeyboardMarkup {
 			tg.NewInlineKeyboardButtonData("Под заказ", callback.Inject(callback.CTypeOrder)),
 		),
 	)
+}
+
+func addPosition() tg.InlineKeyboardMarkup {
+	return tg.NewInlineKeyboardMarkup(
+		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Добавить позицию", callback.Inject(callback.Catalog)),
+		))
+}
+
+func makeOrder() tg.InlineKeyboardMarkup {
+	return tg.NewInlineKeyboardMarkup(
+		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Сделать заказ", callback.Inject(callback.Catalog)),
+		))
 }

@@ -108,16 +108,6 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 		return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
 	}
 
-	updateDTO := dto.UpdateClothingCustomerDTO{
-		LastPosition: &domain.ClothingPosition{},
-		Cart:         &domain.ClothingCart{},
-		State:        &domain.StateDefault,
-	}
-
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
-		return fmt.Errorf("customerRepo.Update: %w", err)
-	}
-
 	shortID, err := h.orderService.GetFreeShortID(ctx)
 	if err != nil {
 		return err
@@ -128,6 +118,16 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 
 	if err := h.orderService.Save(ctx, order); err != nil {
 		return err
+	}
+
+	updateDTO := dto.UpdateClothingCustomerDTO{
+		LastPosition: &domain.ClothingPosition{},
+		Cart:         &domain.ClothingCart{},
+		State:        &domain.StateDefault,
+	}
+
+	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
 
 	return h.prepareOrderPreview(ctx, customer, order, chatID)

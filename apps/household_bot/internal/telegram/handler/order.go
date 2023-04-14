@@ -8,6 +8,7 @@ import (
 	"domain"
 	"dto"
 	"household_bot/internal/telegram/buttons"
+	"household_bot/internal/telegram/callback"
 	"household_bot/internal/telegram/templates"
 	"household_bot/internal/telegram/tg_errors"
 
@@ -61,6 +62,7 @@ func (h *handler) HandleOrderTypeInput(ctx context.Context, chatID int64, args [
 	customer.UpdateMetaOrderType(orderType)
 	updateDTO := dto.UpdateHouseholdCustomerDTO{
 		State: &domain.StateWaitingForFIO,
+		Meta:  &customer.Meta,
 	}
 	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return tg_errors.New(tg_errors.Config{
@@ -229,19 +231,6 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 		})
 	}
 
-	customer.Cart.Clear()
-	updateDTO := dto.UpdateHouseholdCustomerDTO{
-		Cart:  &customer.Cart,
-		State: &domain.StateDefault,
-	}
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandleDeliveryAddressInput",
-			CausedBy:    "Update",
-		})
-	}
-
 	shortID, err := h.orderService.GetFreeShortID(ctx)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
@@ -262,7 +251,20 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 		})
 	}
 
-	if err := h.sendOrderPreview(ctx, customer, order, chatID); err != nil {
+	customer.Cart.Clear()
+	updateDTO := dto.UpdateHouseholdCustomerDTO{
+		Cart:  &customer.Cart,
+		State: &domain.StateDefault,
+	}
+	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "HandleDeliveryAddressInput",
+			CausedBy:    "Update",
+		})
+	}
+
+	if err := h.sendOrder(ctx, order, chatID); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandleDeliveryAddressInput",
@@ -272,77 +274,89 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 	return nil
 }
 
-func (h *handler) sendOrderPreview(ctx context.Context,
-	customer domain.HouseholdCustomer,
+func (h *handler) sendOrder(ctx context.Context,
 	order domain.HouseholdOrder,
 	chatID int64) error {
-	// out := getOrderStart(orderStartArgs{
-	// 	fullName:        *customer.FullName,
-	// 	shortOrderID:    order.ShortID,
-	// 	phoneNumber:     *customer.PhoneNumber,
-	// 	isExpress:       order.IsExpress,
-	// 	deliveryAddress: order.DeliveryAddress,
-	// 	nCartItems:      len(order.Cart),
-	// })
 
-	// for i, cartItem := range order.Cart {
-	// 	out += getPositionTemplate(cartPositionPreviewArgs{
-	// 		n:         i + 1,
-	// 		link:      cartItem.ShopLink,
-	// 		size:      cartItem.Size,
-	// 		category:  string(cartItem.Category),
-	// 		priceRub:  cartItem.PriceRUB,
-	// 		priceYuan: cartItem.PriceYUAN,
-	// 	})
-	// }
+	orderText := templates.RenderOrder(order)
+	if err := h.sendMessage(chatID, orderText); err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "sendOrder",
+			CausedBy:    "sendMessage",
+		})
+	}
 
-	// out += getOrderEnd(order.AmountRUB)
+	updateDTO := dto.UpdateHouseholdCustomerDTO{
+		Meta:  &domain.Meta{},
+		State: &domain.StateDefault,
+	}
+	if err := h.customerRepo.Update(ctx, order.Customer.CustomerID, updateDTO); err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "sendOrder",
+			CausedBy:    "Update",
+		})
+	}
 
-	// if err := h.sendMessage(chatID, out); err != nil {
-	// 	return err
-	// }
-	// updateDTO := dto.UpdateHouseholdCustomerDTO{
-	// 	Meta:  &domain.Meta{},
-	// 	State: &domain.StateDefault,
-	// }
+	requisitesMsg := tg.NewMessage(chatID, templates.Requisites(order.ShortID, domain.AdminRequisites))
+	sentRequisitesMsg, err := h.bot.Send(requisitesMsg)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "Send",
+			CausedBy:    "Update",
+		})
+	}
 
-	// if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
-	// 	return err
-	// }
+	editButton := tg.NewEditMessageReplyMarkup(chatID,
+		sentRequisitesMsg.MessageID,
+		buttons.NewPaymentButton(callback.AcceptPayment, order.ShortID),
+	)
 
-	// requisitesMsg := tg.NewMessage(chatID, templates.Requisites(order.ShortID, domain.AdminRequisites))
-	// sentRequisitesMsg, err := h.bot.Send(requisitesMsg)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// editButton := tg.NewEditMessageReplyMarkup(chatID,
-	// 	sentRequisitesMsg.MessageID,
-	// 	buttons.NewPaymentButton(callback.AcceptPayment, order.ShortID))
-	// return h.cleanSend(editButton)
-	return nil
+	return h.cleanSend(editButton)
 }
 
-func (h *handler) HandlePayment(ctx context.Context, shortOrderID string, c *tg.CallbackQuery) error {
-	return nil
-	// var (
-	// 	chatID     = c.From.ID
-	// 	telegramID = chatID
-	// )
+func (h *handler) HandlePayment(ctx context.Context, c *tg.CallbackQuery, args []string) error {
+	var (
+		chatID       = c.From.ID
+		telegramID   = chatID
+		shortOrderID = args[0]
+	)
 
-	// customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
-	// if err != nil {
-	// 	return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
-	// }
+	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "HandlePayment",
+			CausedBy:    "GetByTelegramID",
+		})
+	}
 
-	// if err := h.orderService.UpdateToPaid(ctx, customer.CustomerID, shortOrderID); err != nil {
-	// 	return err
-	// }
+	if err := h.orderService.UpdateToPaid(ctx, customer.CustomerID, shortOrderID); err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "HandlePayment",
+			CausedBy:    "UpdateToPaid",
+		})
+	}
 
-	// editButtons := tg.NewEditMessageReplyMarkup(chatID, c.Message.MessageID, prepareAfterPaidButtons(shortOrderID))
-	// if err := h.cleanSend(editButtons); err != nil {
-	// 	return err
-	// }
+	editButtons := tg.NewEditMessageReplyMarkup(
+		chatID,
+		c.Message.MessageID,
+		buttons.NewSuccessfulPaymentButton(shortOrderID),
+	)
+	if err := h.cleanSend(editButtons); err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "HandlePayment",
+			CausedBy:    "cleanSend",
+		})
+	}
 
-	// return h.sendWithKeyboard(chatID, getAfterPaid(*customer.FullName, shortOrderID), makeOrderButtons)
+	return h.sendWithKeyboard(
+		chatID,
+		templates.SuccessfulPayment(*customer.FullName, shortOrderID),
+		buttons.MakeOrder,
+	)
 }

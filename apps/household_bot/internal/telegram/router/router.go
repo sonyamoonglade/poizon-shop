@@ -2,12 +2,13 @@ package router
 
 import (
 	"context"
-	"domain"
 	"errors"
 	"fmt"
 	"runtime/debug"
 	"sync"
 	"time"
+
+	"domain"
 
 	"household_bot/internal/telegram/callback"
 	"household_bot/internal/telegram/tg_errors"
@@ -25,7 +26,10 @@ type RouteHandler interface {
 	Start(ctx context.Context, message *tg.Message) error
 	Menu(ctx context.Context, chatID int64) error
 	Catalog(ctx context.Context, chatID int64, prevMsgID *int) error
+
 	GetCart(ctx context.Context, chatID int64) error
+	EditCart(ctx context.Context, chatID int64, cartMsgID int) error
+	DeletePositionFromCart(ctx context.Context, chatID int64, buttonsMsgID int, args []string) error
 
 	Categories(ctx context.Context, chatID int64, prevMsgID int, onlyAvailableInStock bool) error
 	Subcategories(ctx context.Context, chatID int64, prevMsgID int, args []string) error
@@ -39,13 +43,14 @@ type RouteHandler interface {
 	HandleFIOInput(ctx context.Context, m *tg.Message) error
 	HandlePhoneNumberInput(ctx context.Context, m *tg.Message) error
 	HandleDeliveryAddressInput(ctx context.Context, m *tg.Message) error
-	HandlePayment(ctx context.Context, shortOrderID string, c *tg.CallbackQuery) error
+	HandlePayment(ctx context.Context, c *tg.CallbackQuery, args []string) error
 
 	AnswerCallback(c *tg.CallbackQuery) error
+	Sorry(chatID int64) error
 }
 
 type StateProvider interface {
-	GetCustomerState(ctx context.Context, telegramID int64) (domain.State, error)
+	GetState(ctx context.Context, telegramID int64) (domain.State, error)
 }
 
 type Router struct {
@@ -138,7 +143,7 @@ func (r *Router) mapToCommandHandler(ctx context.Context, m *tg.Message) error {
 	case cmd(Menu):
 		return r.handler.Menu(ctx, chatID)
 	default:
-		state, err := r.stateProvider.GetCustomerState(ctx, chatID)
+		state, err := r.stateProvider.GetState(ctx, chatID)
 		if err != nil {
 			return tg_errors.New(tg_errors.Config{
 				OriginalErr: err,
@@ -204,6 +209,15 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 		return r.handler.AddToCart(ctx, chatID, parsedArgs)
 	case callback.SelectOrderType:
 		return r.handler.HandleOrderTypeInput(ctx, chatID, parsedArgs)
+	case callback.EditCart:
+		return r.handler.EditCart(ctx, chatID, msgID)
+	case callback.DeletePositionFromCart:
+		return r.handler.DeletePositionFromCart(ctx, chatID, msgID, parsedArgs)
+	case callback.MakeOrder:
+		// Initial step to make order
+		return r.handler.AskForOrderType(ctx, chatID)
+	case callback.AcceptPayment:
+		return r.handler.HandlePayment(ctx, c, parsedArgs)
 	default:
 		return ErrNoHandler
 	}
@@ -230,15 +244,27 @@ func (r *Router) command(actual string) func(string) bool {
 func (r *Router) handleError(ctx context.Context, err error, u tg.Update) {
 	var (
 		telegramID = u.FromChat().ID
+		from       = r.getUsername(u.SentFrom())
 	)
 	var telegramError *tg_errors.Error
+
 	if errors.As(err, &telegramError) {
-		t, _ := telegramError.ToJSON()
-		fmt.Println(t)
+		errAsJson, err := telegramError.ToJSON()
+		if err != nil {
+			logger.Get().Error("telegramError.ToJSON", zap.Error(err))
+		}
+		logger.Get().Error("error in handler occurred",
+			zap.Any("error", errAsJson),
+			zap.String("from", from),
+			zap.Int64("telegramId", telegramID),
+		)
+	} else {
+		logger.Get().Error("non-telegram error in handler occurred",
+			zap.String("from", from),
+			zap.Int64("telegramId", telegramID),
+			zap.Error(err),
+		)
 	}
-	// todo: contextify errors
-	logger.Get().Error("error in handler occurred",
-		zap.String("from", r.getUsername(u.SentFrom())),
-		zap.Int64("telegramId", telegramID),
-		zap.Error(err))
+
+	r.handler.Sorry(telegramID)
 }

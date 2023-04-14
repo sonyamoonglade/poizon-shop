@@ -2,10 +2,10 @@ package handler
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
+	"onlineshop/api/internal/auth"
 	"repositories"
 	"services"
 )
@@ -29,10 +29,12 @@ func NewHandler(repos repositories.Repositories, categoryService services.Househ
 	}
 }
 
-func (h *Handler) RegisterRoutes(router fiber.Router) {
+func (h *Handler) RegisterRoutes(router fiber.Router, apiKey string) {
 	router.Get("/", h.Home)
 
 	api := router.Group("/api")
+	api.Use(auth.NewAPIKeyMiddleware(apiKey))
+
 	api.Post("/updateRate", h.UpdateRate)
 	api.Get("/currentRate", h.CurrentRate)
 
@@ -64,25 +66,4 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 }
 func (h *Handler) Home(c *fiber.Ctx) error {
 	return c.SendStatus(http.StatusOK)
-}
-
-func (h *Handler) UpdateRate(c *fiber.Ctx) error {
-	newRate := c.QueryFloat("rate", 0.0)
-	if newRate == 0.0 {
-		return fmt.Errorf("empty rate")
-	}
-	if err := h.rateProvider.UpdateRate(c.Context(), newRate); err != nil {
-		return fmt.Errorf("update rate: %w", err)
-	}
-	return c.SendStatus(http.StatusOK)
-}
-
-func (h *Handler) CurrentRate(c *fiber.Ctx) error {
-	rate, err := h.rateProvider.GetYuanRate(c.Context())
-	if err != nil {
-		return fmt.Errorf("get yuan rate: %w", err)
-	}
-	return c.Status(http.StatusOK).JSON(fiber.Map{
-		"rate": rate,
-	})
 }

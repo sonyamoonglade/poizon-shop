@@ -12,6 +12,17 @@ func Map[A any, B any](f mapFunc[A, B], input []A) []B {
 	return result
 }
 
+type foreachFunc[A any] func(a A, i int) error
+
+func ForEach[A any](f foreachFunc[A], input []A) error {
+	for i, v := range input {
+		if err := f(v, i); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func Reduce[A, B any](f func(B, A) B, s []A, initValue B) B {
 	acc := initValue
 	for _, v := range s {

@@ -65,6 +65,7 @@ replace (
 	logger v0.0.0 => ../../libs/logger
 	nanoid => ../../libs/nanoid
 	onlineshop/database v0.0.0 => ../../libs/database
+	redis v0.0.0 => ../../libs/redis
 	repositories v0.0.0 => ../../libs/repositories
 	services => ../../libs/services
 	utils => ../../libs/utils

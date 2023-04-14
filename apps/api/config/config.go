@@ -7,17 +7,16 @@ import (
 
 type AppConfig struct {
 	Database struct {
-		// Connection string
-		URI string
-		// Name of database
+		URI  string
 		Name string
 	}
 	HTTP struct {
-		Port string
+		Port   string
+		ApiKey string
 	}
 }
 
-func ReadConfig(path string) (AppConfig, error) {
+func ReadConfig() (AppConfig, error) {
 	mongoURI := os.Getenv("MONGO_URI")
 	if mongoURI == "" {
 		return AppConfig{}, fmt.Errorf("missing MONGO_URI env")
@@ -33,6 +32,11 @@ func ReadConfig(path string) (AppConfig, error) {
 		return AppConfig{}, fmt.Errorf("missing PORT env")
 	}
 
+	apiKey := os.Getenv("API_KEY")
+	if apiKey == "" {
+		return AppConfig{}, fmt.Errorf("missing API_KEY env")
+	}
+
 	return AppConfig{
 		Database: struct {
 			URI  string
@@ -42,9 +46,11 @@ func ReadConfig(path string) (AppConfig, error) {
 			Name: dbname,
 		},
 		HTTP: struct {
-			Port string
+			Port   string
+			ApiKey string
 		}{
-			Port: port,
+			Port:   port,
+			ApiKey: apiKey,
 		},
 	}, nil
 }

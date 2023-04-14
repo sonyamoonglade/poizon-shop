@@ -6,6 +6,7 @@ import (
 
 	"domain"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"go.uber.org/multierr"
 )
 
 func (h *handler) sendWithKeyboard(chatID int64, text string, keyboard interface{}) error {
@@ -17,6 +18,15 @@ func (h *handler) sendWithKeyboard(chatID int64, text string, keyboard interface
 func (h *handler) cleanSend(c tg.Chattable) error {
 	_, err := h.bot.Send(c)
 	return err
+}
+func (h *handler) sendBulk(cs ...tg.Chattable) error {
+	var errors error
+	for _, c := range cs {
+		if _, err := h.bot.Send(c); err != nil {
+			errors = multierr.Append(errors, fmt.Errorf("sendBulk: %w", err))
+		}
+	}
+	return errors
 }
 
 func (h *handler) checkRequiredState(ctx context.Context, telegramID int64, want domain.State) error {

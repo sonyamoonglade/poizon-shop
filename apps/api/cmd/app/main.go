@@ -29,7 +29,7 @@ func main() {
 }
 
 func run() error {
-	configPath, logsPath, production, strict := readCmdArgs()
+	logsPath, production, strict := readCmdArgs()
 
 	if err := logger.NewLogger(logger.Config{
 		Out:              []string{logsPath},
@@ -40,7 +40,7 @@ func run() error {
 		return fmt.Errorf("error instantiating logger: %w", err)
 	}
 
-	cfg, err := config.ReadConfig(configPath)
+	cfg, err := config.ReadConfig()
 	if err != nil {
 		return fmt.Errorf("can't read config: %w", err)
 	}
@@ -83,7 +83,7 @@ func run() error {
 
 	hhCategoryService := services.NewHouseholdCategoryService(repos.HouseholdCategory, mongo)
 	apiController := handler.NewHandler(repos, hhCategoryService)
-	apiController.RegisterRoutes(app)
+	apiController.RegisterRoutes(app, cfg.HTTP.ApiKey)
 
 	if err := app.Listen(":" + cfg.HTTP.Port); err != nil {
 		return err
@@ -97,19 +97,13 @@ func run() error {
 	return mongo.Close(context.Background())
 }
 
-func readCmdArgs() (string, string, bool, bool) {
+func readCmdArgs() (string, bool, bool) {
 	production := flag.Bool("production", false, "if logger should write to file")
 	logsPath := flag.String("logs-path", "", "where log file is")
 	strict := flag.Bool("strict", false, "if logger should log only warn+ logs")
-	configPath := flag.String("config-path", "", "where config file is")
 
 	flag.Parse()
 
-	// Critical for app if not specified
-	if *configPath == "" {
-		panic("config path is not provided")
-	}
-
 	// Naked return, see return variable names
-	return *configPath, *logsPath, *production, *strict
+	return *logsPath, *production, *strict
 }

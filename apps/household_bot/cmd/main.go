@@ -18,6 +18,7 @@ import (
 	"logger"
 	"onlineshop/database"
 	"repositories"
+	"services"
 )
 
 func main() {
@@ -60,10 +61,11 @@ func run() error {
 		return fmt.Errorf("error creating telegram bot: %w", err)
 	}
 	catalogProvider := catalog.NewProvider()
-	tgHandler := handler.NewHandler(tgBot, repos.Rate, repos, catalogProvider)
+	orderService := services.NewHouseholdOrderService(repos.HouseholdOrder)
+	tgHandler := handler.NewHandler(tgBot, repos.Rate, repos, catalogProvider, orderService)
 	tgRouter := router.NewRouter(tgBot.GetUpdates(),
 		tgHandler,
-		nil,
+		repos.HouseholdCustomer,
 		cfg.Bot.HandlerTimeout)
 
 	if err := tgRouter.Bootstrap(); err != nil {

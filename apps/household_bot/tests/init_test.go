@@ -6,11 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"clothes_bot/internal/catalog"
-	"clothes_bot/internal/telegram"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
+	"household_bot/internal/catalog"
+	"household_bot/internal/telegram/handler"
+	"household_bot/internal/telegram/router"
 	"logger"
 	"onlineshop/database"
 	"repositories"
@@ -47,8 +48,8 @@ type AppTestSuite struct {
 	suite.Suite
 
 	db           *database.Mongo
-	tgrouter     *telegram.Router
-	tghandler    telegram.RouteHandler
+	tgrouter     *router.Router
+	tghandler    router.RouteHandler
 	repositories *repositories.Repositories
 	mockBot      *MockBot
 	updatesChan  <-chan tg.Update
@@ -85,14 +86,14 @@ func (s *AppTestSuite) setupDeps() {
 		return
 	}
 
-	catalogProvider := catalog.NewCatalogProvider()
+	catalogProvider := catalog.NewProvider()
 	repos := repositories.NewRepositories(mongo, nil, nil)
-	orderService := services.NewClothingOrderService(repos.ClothingOrder)
+	orderService := services.NewHouseholdOrderService(repos.HouseholdOrder)
 
 	updates := make(chan tg.Update)
 	mockBot := new(MockBot)
-	tgHandler := telegram.NewHandler(mockBot, repos.ClothingCustomer, orderService, repos.Rate, catalogProvider)
-	tgRouter := telegram.NewRouter(updates, tgHandler, repos.ClothingCustomer, time.Second*5)
+	tgHandler := handler.NewHandler(mockBot, repos.Rate, repos, catalogProvider, orderService)
+	tgRouter := router.NewRouter(updates, tgHandler, repos.ClothingCustomer, time.Second*5)
 
 	mockBot.On("Send", mock.Anything).Return(tg.Message{}, nil)
 

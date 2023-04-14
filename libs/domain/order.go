@@ -31,6 +31,21 @@ func (o OrderType) String() string {
 	return strconv.Itoa(int(o))
 }
 
+const (
+	ExpressStr = "Экспресс"
+	NormalStr  = "Обычный"
+)
+
+// AsHumanString returns 'Экспресс' or 'Обычный'
+func (o OrderType) AsHumanString() string {
+	if o == OrderTypeNormal {
+		return NormalStr
+	} else if o == OrderTypeExpress {
+		return ExpressStr
+	}
+	return ""
+}
+
 type Status int
 
 const (

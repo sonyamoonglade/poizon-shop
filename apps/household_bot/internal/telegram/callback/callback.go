@@ -21,8 +21,11 @@ const (
 	SelectProduct
 	FromProductCardToProducts
 	AddToCart
-	AcceptPayment
+	EditCart
+	DeletePositionFromCart
+	MakeOrder
 	SelectOrderType
+	AcceptPayment
 )
 
 func (c Callback) string() string {
@@ -53,7 +56,6 @@ func ParseButtonData(data string) (Callback, []string, error) {
 		}
 		return cb, nil, nil
 	}
-	fmt.Println(data)
 	values := strings.Split(data[2:], ";")
 	if len(values) == 0 {
 		return -1, nil, fmt.Errorf("invalid callback data")

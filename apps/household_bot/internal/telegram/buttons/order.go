@@ -1,6 +1,8 @@
 package buttons
 
 import (
+	"fmt"
+
 	"domain"
 	"household_bot/internal/telegram/callback"
 
@@ -29,5 +31,12 @@ func NewPaymentButton(c callback.Callback, orderShortID string) tg.InlineKeyboar
 	return tg.NewInlineKeyboardMarkup(
 		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Оплачено", callback.Inject(c, orderShortID)),
+		))
+}
+
+func NewSuccessfulPaymentButton(orderShortID string) tg.InlineKeyboardMarkup {
+	return tg.NewInlineKeyboardMarkup(
+		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData(fmt.Sprintf("Заказ %s оплачен ✅", orderShortID), callback.Inject(callback.NoOpCallback)),
 		))
 }

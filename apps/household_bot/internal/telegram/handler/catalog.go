@@ -73,7 +73,13 @@ func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int
 	}
 	// To prev step, reInject inStock and cTitle
 	backButton := buttons.NewBackButton(cb, &cTitle, nil, &onlyAvailableInStock)
-	keyboard := buttons.NewSubcategoryButtons(cTitle, subcategoryTitles, callback.SelectSubcategory, onlyAvailableInStock, backButton)
+	keyboard := buttons.NewSubcategoryButtons(
+		cTitle,
+		subcategoryTitles,
+		callback.SelectSubcategory,
+		onlyAvailableInStock,
+		backButton,
+	)
 	editMsg := tg.NewEditMessageText(chatID, prevMsgID, "Подкатегории")
 	editMsg.ReplyMarkup = &keyboard
 	return h.cleanSend(editMsg)
@@ -103,7 +109,16 @@ func (h *handler) Products(ctx context.Context, chatID int64, prevMsgID int, arg
 	// 	})
 	// }
 	backButton := buttons.NewBackButton(callback.SelectCategory, &cTitle, nil, &inStock)
-	c, err := h.fetchProductsAndGetChattable(ctx, chatID, true, &prevMsgID, backButton, cTitle, sTitle, inStock)
+	c, err := h.fetchProductsAndGetChattable(
+		ctx,
+		chatID,
+		true,
+		&prevMsgID,
+		backButton,
+		cTitle,
+		sTitle,
+		inStock,
+	)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -177,7 +192,11 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 	return h.cleanSend(photo)
 }
 
-func (h *handler) ProductsNew(ctx context.Context, chatID int64, msgIDForDeletion int, args []string) error {
+func (h *handler) ProductsNew(ctx context.Context,
+	chatID int64,
+	msgIDForDeletion int,
+	args []string,
+) error {
 	var (
 		cTitle,
 		sTitle,
@@ -211,8 +230,17 @@ func (h *handler) ProductsNew(ctx context.Context, chatID int64, msgIDForDeletio
 		})
 	}
 
-	backButton := buttons.NewBackButton(callback.SelectCategory, &cTitle, &sTitle, &inStock)
-	c, err := h.fetchProductsAndGetChattable(ctx, chatID, false, nil, backButton, cTitle, sTitle, inStock)
+	backButton := buttons.NewBackButton(callback.SelectCategory, &cTitle, nil, &inStock)
+	c, err := h.fetchProductsAndGetChattable(
+		ctx,
+		chatID,
+		false,
+		nil,
+		backButton,
+		cTitle,
+		sTitle,
+		inStock,
+	)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -257,7 +285,7 @@ func (h *handler) fetchProductsAndGetChattable(ctx context.Context,
 		c = m
 
 	} else {
-		m := tg.NewMessage(chatID, "Дотспные товары")
+		m := tg.NewMessage(chatID, "Доступные товары")
 		m.ReplyMarkup = keyboard
 		c = m
 	}

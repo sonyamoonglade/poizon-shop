@@ -2,6 +2,10 @@ package domain
 
 type HouseholdCart []HouseholdProduct
 
+func (c *HouseholdCart) First() HouseholdProduct {
+	return (*c)[0]
+}
+
 func (c *HouseholdCart) Clear() {
 	*c = nil
 }

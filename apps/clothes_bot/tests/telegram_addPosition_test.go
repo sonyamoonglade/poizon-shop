@@ -21,7 +21,7 @@ func (s *AppTestSuite) TestAddPosition() {
 	)
 
 	s.Run("customer's cart is empty", func() {
-		customer := domain.NewCustomer(telegramID, username)
+		customer := domain.NewClothingCustomer(telegramID, username)
 		err := s.repositories.ClothingCustomer.Save(ctx, customer)
 		require.NoError(err)
 
@@ -38,7 +38,7 @@ func (s *AppTestSuite) TestAddPosition() {
 	})
 
 	s.Run("customer's cart is not empty", func() {
-		customer := domain.NewCustomer(telegramID, username)
+		customer := domain.NewClothingCustomer(telegramID, username)
 		customer.Cart.Add(domain.ClothingPosition{
 			PositionID: primitive.NewObjectID(),
 			ShopLink:   f.URL(),
@@ -75,7 +75,7 @@ func (s *AppTestSuite) TestHandleCategoryInput() {
 	)
 
 	for _, category := range []domain.Category{domain.CategoryHeavy, domain.CategoryOther, domain.CategoryLight} {
-		customer := domain.NewCustomer(telegramID, username)
+		customer := domain.NewClothingCustomer(telegramID, username)
 		// Set appropriate state
 		customer.TgState = domain.StateWaitingForCategory
 
@@ -105,7 +105,7 @@ func (s *AppTestSuite) TestHandleOrderTypeInput() {
 	)
 
 	for _, ordTyp := range []domain.OrderType{domain.OrderTypeExpress, domain.OrderTypeNormal} {
-		customer := domain.NewCustomer(telegramID, username)
+		customer := domain.NewClothingCustomer(telegramID, username)
 		// Set appropriate state and category
 		customer.TgState = domain.StateWaitingForOrderType
 		customer.UpdateLastEditPositionCategory(domain.CategoryOther)
@@ -137,7 +137,7 @@ func (s *AppTestSuite) TestHandleSizeInput() {
 	s.mockBot.On("Send", mock.Anything).Return(tg.Message{}, nil)
 	sizes := []string{"A", "B", "C", "L", "#"}
 	for _, size := range sizes {
-		customer := domain.NewCustomer(telegramID, username)
+		customer := domain.NewClothingCustomer(telegramID, username)
 		// Set appropriate state, category, order type
 		customer.TgState = domain.StateWaitingForSize
 		customer.UpdateLastEditPositionCategory(domain.CategoryOther)
@@ -171,7 +171,7 @@ func (s *AppTestSuite) HandleButtonSelect() {
 	)
 
 	for _, b := range []domain.Button{domain.Button95, domain.ButtonTorqoise, domain.ButtonGrey} {
-		customer := domain.NewCustomer(telegramID, username)
+		customer := domain.NewClothingCustomer(telegramID, username)
 		// Set appropriate state, category, order type, size
 		customer.TgState = domain.StateWaitingForButton
 		customer.UpdateLastEditPositionCategory(domain.CategoryOther)
@@ -208,7 +208,7 @@ func (s *AppTestSuite) HandleTestPriceInput() {
 	inputs := make([]int, 10)
 	f.Slice(&inputs)
 	for _, inputYuan := range inputs {
-		customer := domain.NewCustomer(telegramID, username)
+		customer := domain.NewClothingCustomer(telegramID, username)
 		// Set appropriate state, category, order type, size, button
 		customer.TgState = domain.StateWaitingForPrice
 		customer.LastEditPosition.Category = domain.CategoryOther
@@ -253,7 +253,7 @@ func (s *AppTestSuite) TestHandleLinkInput() {
 	links := []string{"https://dw4.co/t/A/abdc", "https://dw", "https://google.com"}
 
 	for _, link := range links {
-		customer := domain.NewCustomer(telegramID, username)
+		customer := domain.NewClothingCustomer(telegramID, username)
 		// Set appropriate state, category, order type, size, button
 		customer.TgState = domain.StateWaitingForLink
 		customer.UpdateLastEditPositionCategory(domain.CategoryOther)

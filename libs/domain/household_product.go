@@ -21,3 +21,15 @@ type HouseholdProduct struct {
 	PriceGlob        uint32             `json:"priceGlob" bson:"priceGlob"`
 	AvailableInStock bool               `json:"availableInStock" bson:"availableInStock"`
 }
+
+const (
+	in  = "В наличии"
+	ord = "Под заказ"
+)
+
+func InStockToString(inStock bool) string {
+	if inStock {
+		return in
+	}
+	return ord
+}

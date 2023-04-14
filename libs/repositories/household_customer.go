@@ -92,9 +92,7 @@ func (h *householdCustomerRepo) Update(ctx context.Context, customerID primitive
 	}
 
 	if dto.Meta != nil {
-		if dto.Meta.NextOrderType != nil {
-			update["meta.nextOrderType"] = dto.Meta.NextOrderType
-		}
+		update["meta"] = dto.Meta
 	}
 	_, err := h.customers.UpdateByID(ctx, customerID, bson.M{"$set": update})
 	return err

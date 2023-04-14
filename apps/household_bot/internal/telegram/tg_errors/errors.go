@@ -64,11 +64,11 @@ func (e *Error) Error() string {
 // ToJSON returns descriptive representation of an error
 func (e *Error) ToJSON() (string, error) {
 	b, err := json.Marshal(struct {
-		handler, causedBy, originalError string
+		Handler, CausedBy, OriginalError string
 	}{
-		handler:       e.context.handler,
-		causedBy:      e.context.causedBy,
-		originalError: e.originalErr.Error(),
+		Handler:       e.context.handler,
+		CausedBy:      e.context.causedBy,
+		OriginalError: e.originalErr.Error(),
 	})
 	if err != nil {
 		return "", fmt.Errorf("json marshal: %w", err)

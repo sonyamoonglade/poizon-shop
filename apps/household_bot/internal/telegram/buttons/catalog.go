@@ -8,6 +8,10 @@ import (
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
+var (
+	RouteToCatalog = jumpToCatalog()
+)
+
 func NewCategoryButtons(titles []string, cb callback.Callback, inStock bool, back BackButton) tg.InlineKeyboardMarkup {
 	var rows [][]tg.InlineKeyboardButton
 	for _, title := range titles {
@@ -58,4 +62,12 @@ func NewProductCardButtons(args ProductCardButtonsArgs) tg.InlineKeyboardMarkup 
 	rows = append(rows, tg.NewInlineKeyboardRow(addToCardBtn))
 	rows = append(rows, args.Back.ToRow())
 	return tg.NewInlineKeyboardMarkup(rows...)
+}
+
+func jumpToCatalog() tg.InlineKeyboardMarkup {
+	return tg.NewInlineKeyboardMarkup(
+		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("В каталог", callback.Inject(callback.Catalog)),
+		),
+	)
 }
