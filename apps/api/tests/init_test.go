@@ -86,7 +86,7 @@ func (s *AppTestSuite) setupDeps() {
 		},
 	})
 
-	apiHandler.RegisterRoutes(app)
+	apiHandler.RegisterRoutes(app, "abcd")
 
 	s.app = app
 	s.db = mongo

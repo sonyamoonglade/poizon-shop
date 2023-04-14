@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"domain
+	"domain"
 	"functools"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"utils/ranges"
@@ -25,7 +25,7 @@ func (h *handler) Start(ctx context.Context, m *tg.Message) error {
 			return err
 		}
 		// save to db
-		if err := h.customerRepo.Save(ctx, domain.NewCustomer(telegramID, username)); err != nil {
+		if err := h.customerRepo.Save(ctx, domain.NewClothingCustomer(telegramID, username)); err != nil {
 			return err
 		}
 	}
