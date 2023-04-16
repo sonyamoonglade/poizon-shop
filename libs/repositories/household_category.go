@@ -114,6 +114,24 @@ func (r *householdCategoryRepo) GetAll(ctx context.Context) ([]domain.HouseholdC
 	}
 	return categories, nil
 }
+
+func (r *householdCategoryRepo) GetAllByInStock(ctx context.Context, inStock bool) ([]domain.HouseholdCategory, error) {
+	opts := options.Find()
+	opts.SetSort(bson.M{"rank": 1})
+	cur, err := r.categories.Find(ctx, bson.M{"inStock": inStock}, opts)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, domain.ErrNoCategories
+		}
+		return nil, fmt.Errorf("find: %w", err)
+	}
+	categories := make([]domain.HouseholdCategory, 0)
+	if err := cur.All(ctx, &categories); err != nil {
+		return nil, fmt.Errorf("cursor all: %w", err)
+	}
+	return categories, nil
+}
+
 func (r *householdCategoryRepo) GetByID(ctx context.Context, categoryID primitive.ObjectID) (domain.HouseholdCategory, error) {
 	res := r.categories.FindOne(ctx, bson.M{"_id": categoryID})
 	if res.Err() != nil {

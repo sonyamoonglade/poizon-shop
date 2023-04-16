@@ -2,16 +2,17 @@ package main
 
 import (
 	"context"
-	"domain"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"redis"
 	"syscall"
 	"time"
+
+	"domain"
+	"redis"
 
 	"logger"
 	"onlineshop/api/config"
@@ -57,13 +58,17 @@ func run() error {
 	}
 
 	client := redis.NewClient(cfg.Redis.Addr)
+
 	// Bus for household catalog
 	householdBus := redis.NewBus[[]domain.HouseholdCategory](client)
 	// Bus for clothing catalog
 	clothingBus := redis.NewBus[[]domain.ClothingProduct](client)
+
 	redCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
 	householdHook := func(items []domain.HouseholdCategory) {
+		logger.Get().Debug("exec householdHook")
 		err := householdBus.SendToTopic(
 			redCtx,
 			redis.HouseholdCatalogTopic,
@@ -72,9 +77,19 @@ func run() error {
 		if err != nil {
 			logger.Get().Error("householdBus.sendToTopic", zap.Error(err))
 		}
+
+		err = householdBus.SendToTopic(
+			redCtx,
+			redis.HouseholdWipeCatalogTopic,
+			nil,
+		)
+		if err != nil {
+			logger.Get().Error("householdBus.sendToTopic", zap.Error(err))
+		}
 	}
 
 	clothingHook := func(items []domain.ClothingProduct) {
+		logger.Get().Debug("exec clothingHook")
 		err := clothingBus.SendToTopic(
 			redCtx,
 			redis.ClothingCatalogTopic,

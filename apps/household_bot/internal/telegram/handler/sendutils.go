@@ -15,6 +15,14 @@ func (h *handler) sendWithKeyboard(chatID int64, text string, keyboard interface
 	return h.cleanSend(m)
 }
 
+func (h *handler) sendWithMessageID(c tg.Chattable, f func(msgID int) error) error {
+	msg, err := h.bot.Send(c)
+	if err != nil {
+		return err
+	}
+	return f(msg.MessageID)
+}
+
 func (h *handler) cleanSend(c tg.Chattable) error {
 	_, err := h.bot.Send(c)
 	return err

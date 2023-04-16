@@ -10,12 +10,13 @@ import (
 	"household_bot/internal/telegram/callback"
 	"household_bot/internal/telegram/templates"
 	"household_bot/internal/telegram/tg_errors"
+	"household_bot/pkg/telegram"
 
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, onlyAvailableInStock bool) error {
-	categories, err := h.categoryRepo.GetAll(ctx)
+	categories, err := h.categoryRepo.GetAllByInStock(ctx, onlyAvailableInStock)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -130,10 +131,19 @@ func (h *handler) Products(ctx context.Context, chatID int64, prevMsgID int, arg
 }
 
 func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, args []string) error {
-	/// delete prev
 	if err := h.bot.CleanRequest(tg.NewDeleteMessage(chatID, prevMsgID)); err != nil {
-		// handle err
-		return err
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "Products",
+			CausedBy:    "CleanRequest",
+		})
+	}
+	if err := h.catalogMsgService.DeleteByMsgID(ctx, prevMsgID); err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "Products",
+			CausedBy:    "DeleteByMsgID",
+		})
 	}
 	var (
 		cTitle,
@@ -166,8 +176,9 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 		}
 	}
 
-	photo := tg.NewPhoto(chatID, tg.FileURL("https://picsum.photos/200/300"))
+	photo := tg.NewPhoto(chatID, tg.FileURL(p.ImageURL))
 	photo.Caption = templates.HouseholdProductCaption(p)
+	photo.ParseMode = "markdown"
 	photo.ReplyMarkup = buttons.NewProductCardButtons(buttons.ProductCardButtonsArgs{
 		Cb:      callback.AddToCart,
 		CTitle:  cTitle,
@@ -189,7 +200,20 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 		})
 	}
 
-	return h.cleanSend(photo)
+	return h.sendWithMessageID(photo, func(msgID int) error {
+		catalogMsg := telegram.CatalogMsg{
+			MsgID: msgID,
+		}
+		err := h.catalogMsgService.Save(ctx, catalogMsg)
+		if err != nil {
+			return tg_errors.New(tg_errors.Config{
+				OriginalErr: err,
+				Handler:     "ProductCard",
+				CausedBy:    "Save",
+			})
+		}
+		return nil
+	})
 }
 
 func (h *handler) ProductsNew(ctx context.Context,
@@ -203,8 +227,18 @@ func (h *handler) ProductsNew(ctx context.Context,
 		inStockStr = args[0], args[1], args[2]
 	)
 	if err := h.bot.CleanRequest(tg.NewDeleteMessage(chatID, msgIDForDeletion)); err != nil {
-		//todo: handler rr
-		return err
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "ProductsNew",
+			CausedBy:    "CleanRequest",
+		})
+	}
+	if err := h.catalogMsgService.DeleteByMsgID(ctx, msgIDForDeletion); err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "ProductsNew",
+			CausedBy:    "DeleteByMsgID",
+		})
 	}
 	inStock, err := strconv.ParseBool(inStockStr)
 	if err != nil {
@@ -248,7 +282,21 @@ func (h *handler) ProductsNew(ctx context.Context,
 			CausedBy:    "fetchProductsAndGetChattable",
 		})
 	}
-	return h.cleanSend(c)
+
+	return h.sendWithMessageID(c, func(msgID int) error {
+		catalogMsg := telegram.CatalogMsg{
+			MsgID: msgID,
+		}
+		err := h.catalogMsgService.Save(ctx, catalogMsg)
+		if err != nil {
+			return tg_errors.New(tg_errors.Config{
+				OriginalErr: err,
+				Handler:     "ProductsNew",
+				CausedBy:    "Save",
+			})
+		}
+		return nil
+	})
 }
 
 func (h *handler) fetchProductsAndGetChattable(ctx context.Context,

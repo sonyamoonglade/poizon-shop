@@ -2,9 +2,8 @@ package redis
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-
-	"github.com/vmihailenco/msgpack/v5"
 )
 
 type Bus[PayloadType any] struct {
@@ -17,7 +16,7 @@ func NewBus[PayloadType any](c *Client) *Bus[PayloadType] {
 	}
 }
 
-type CallbackFunc[PayloadType any] func(payload PayloadType)
+type CallbackFunc[PayloadType any] func(payload PayloadType) error
 type ErrorHandlerFunc func(topicName string, err error)
 
 func (b *Bus[PayloadType]) SubscribeToTopicWithCallback(
@@ -34,21 +33,38 @@ func (b *Bus[PayloadType]) SubscribeToTopicWithCallback(
 		case <-ctx.Done():
 			return
 		case msg := <-updates:
-			var out PayloadType
-			err := msgpack.Unmarshal(stringToBytes(msg.Payload), &out)
-			if err != nil {
-				errorHandler(topicName, fmt.Errorf("msgpack.Unmarshal: %w", err))
+			if msg.Payload == "" {
+				runCallback[PayloadType](topicName, cb, *new(PayloadType), errorHandler)
 				continue
 			}
-			cb(out)
+
+			var out PayloadType
+			err := json.Unmarshal(stringToBytes(msg.Payload), &out)
+			if err != nil {
+				errorHandler(topicName, fmt.Errorf("json.Unmarshal: %w", err))
+				continue
+			}
+
+			runCallback[PayloadType](topicName, cb, out, errorHandler)
 		}
 	}
 }
 
-func (b *Bus[PayloadType]) SendToTopic(ctx context.Context, topicName string, payload PayloadType) error {
-	packed, err := msgpack.Marshal(payload)
+func (b *Bus[PayloadType]) SendToTopic(ctx context.Context, topicName string, payload any) error {
+	if payload == nil {
+		fmt.Println("sending empty")
+		return b.client.c.Publish(ctx, topicName, nil).Err()
+	}
+
+	packed, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("msgpack.Marshal: %w", err)
+		return fmt.Errorf("json.Marshal: %w", err)
 	}
 	return b.client.c.Publish(ctx, topicName, packed).Err()
+}
+
+func runCallback[T any](topicName string, cb CallbackFunc[T], payload T, errHandler ErrorHandlerFunc) {
+	if err := cb(payload); err != nil {
+		errHandler(topicName, fmt.Errorf("callback: %w", err))
+	}
 }

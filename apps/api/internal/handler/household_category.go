@@ -7,6 +7,7 @@ import (
 	"net/url"
 
 	"dto"
+
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -30,6 +31,7 @@ func (h *Handler) GetCategoryByID(c *fiber.Ctx) error {
 
 func (h *Handler) NewCategory(c *fiber.Ctx) error {
 	title := c.Query("title", "")
+	inStock := c.QueryBool("inStock", false)
 	t, err := url.QueryUnescape(title)
 	if err != nil {
 		return fmt.Errorf("query unescape: %w", err)
@@ -38,14 +40,15 @@ func (h *Handler) NewCategory(c *fiber.Ctx) error {
 	if title == "" {
 		return ErrNoTitle
 	}
-	if err := h.categoryService.New(c.Context(), title); err != nil {
+	if err := h.categoryService.New(c.Context(), title, inStock); err != nil {
 		return fmt.Errorf("new category: %w", err)
 	}
 	return c.SendStatus(http.StatusCreated)
 }
 
 func (h *Handler) GetAllCategories(c *fiber.Ctx) error {
-	categories, err := h.categoryService.GetAll(c.Context())
+	inStock := c.QueryBool("inStock", false)
+	categories, err := h.categoryService.GetAllByInStock(c.Context(), inStock)
 	if err != nil {
 		return fmt.Errorf("get all: %w", err)
 	}

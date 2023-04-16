@@ -3,9 +3,11 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"domain"
 	"household_bot/internal/catalog"
+	"household_bot/pkg/telegram"
 	"repositories"
 	"services"
 
@@ -27,12 +29,13 @@ type Bot interface {
 }
 
 type handler struct {
-	bot             Bot
-	rateProvider    RateProvider
-	categoryRepo    repositories.HouseholdCategory
-	customerRepo    repositories.HouseholdCustomer
-	orderService    services.Order[domain.HouseholdOrder]
-	catalogProvider *catalog.Provider
+	bot               Bot
+	rateProvider      RateProvider
+	categoryRepo      repositories.HouseholdCategory
+	customerRepo      repositories.HouseholdCustomer
+	orderService      services.Order[domain.HouseholdOrder]
+	catalogMsgService services.HouseholdCatalogMsg
+	catalogProvider   *catalog.Provider
 }
 
 func NewHandler(b Bot,
@@ -40,14 +43,16 @@ func NewHandler(b Bot,
 	repos repositories.Repositories,
 	catalogProvider *catalog.Provider,
 	orderService services.Order[domain.HouseholdOrder],
+	catalogMsgService services.HouseholdCatalogMsg,
 ) *handler {
 	return &handler{
-		bot:             b,
-		rateProvider:    rp,
-		categoryRepo:    repos.HouseholdCategory,
-		customerRepo:    repos.HouseholdCustomer,
-		catalogProvider: catalogProvider,
-		orderService:    orderService,
+		bot:               b,
+		rateProvider:      rp,
+		categoryRepo:      repos.HouseholdCategory,
+		customerRepo:      repos.HouseholdCustomer,
+		catalogProvider:   catalogProvider,
+		orderService:      orderService,
+		catalogMsgService: catalogMsgService,
 	}
 }
 
@@ -59,4 +64,17 @@ const sorry = "Упс, что-то пошло не так."
 
 func (h *handler) Sorry(chatID int64) error {
 	return h.sendMessage(chatID, sorry)
+}
+
+// WipeCatalogs reads all msgID's of catalogs from database and deletes them
+func (h *handler) WipeCatalogs(ctx context.Context) error {
+	err := h.catalogMsgService.WipeAll(ctx, h)
+	if err != nil {
+		return fmt.Errorf("wipe catalogs: %w", err)
+	}
+	return nil
+}
+
+func (h *handler) DeleteFromCatalog(m telegram.CatalogMsg) error {
+	return h.bot.CleanRequest(tg.NewDeleteMessage(m.ChatID, m.MsgID))
 }

@@ -6,7 +6,7 @@ import (
 
 	"domain"
 	"dto"
-	"functools"
+	fn "github.com/elliotchance/pie/v2"
 	"onlineshop/database"
 	"repositories"
 
@@ -45,7 +45,11 @@ func (h *householdCategoryService) New(
 
 func (h *householdCategoryService) Delete(ctx context.Context, categoryID primitive.ObjectID) error {
 	return h.transactor.WithTransaction(ctx, func(tx context.Context) error {
-		currentCategories, err := h.repo.GetAll(ctx)
+		category, err := h.repo.GetByID(ctx, categoryID)
+		if err != nil {
+			return fmt.Errorf("get by id: %w", err)
+		}
+		currentCategories, err := h.repo.GetAllByInStock(ctx, category.InStock)
 		if err != nil {
 			return fmt.Errorf("get all: %w", err)
 		}
@@ -60,38 +64,41 @@ func (h *householdCategoryService) Update(ctx context.Context, categoryID primit
 func (h *householdCategoryService) GetAll(ctx context.Context) ([]domain.HouseholdCategory, error) {
 	return h.repo.GetAll(ctx)
 }
+func (h *householdCategoryService) GetAllByInStock(ctx context.Context, inStock bool) ([]domain.HouseholdCategory, error) {
+	return h.repo.GetAllByInStock(ctx, inStock)
+}
+
 func (h *householdCategoryService) GetByID(ctx context.Context, categoryID primitive.ObjectID) (domain.HouseholdCategory, error) {
 	return h.repo.GetByID(ctx, categoryID)
 }
 
 // tx - transaction
-func (h *householdCategoryService) fixCategoriesRanks(tx context.Context, categoryID primitive.ObjectID, categories []domain.HouseholdCategory) error {
-	n := len(categories)
-	var foundIdx int
-	return functools.ForEach(func(category domain.HouseholdCategory, i int) error {
-		if category.CategoryID == categoryID {
-			// Few cases here:
-			foundIdx = i
-			// It's first and last element, if so - just delete it
-			if err := h.repo.Delete(tx, categoryID); err != nil {
-				return fmt.Errorf("for each, delete: %w", err)
-			}
-		}
-		// Don't do anything
-		if n == 1 {
-			return nil
-		} else {
-			// Starting from foundIdx reduce ranks by 1
-			if i > foundIdx {
-				newRank := category.Rank - 1
-				if err := h.repo.Update(tx, category.CategoryID, dto.UpdateCategoryDTO{
-					Rank: &newRank,
-				}); err != nil {
-					return fmt.Errorf("for each, update: %w", err)
-				}
-			}
-		}
+func (h *householdCategoryService) fixCategoriesRanks(
+	tx context.Context,
+	categoryID primitive.ObjectID,
+	categories []domain.HouseholdCategory,
+) error {
+	categoriesIter := fn.Of(categories)
+	idx := categoriesIter.FindFirstUsing(func(c domain.HouseholdCategory) bool {
+		return c.CategoryID == categoryID
+	})
+	categories = categoriesIter.Filter(func(c domain.HouseholdCategory) bool {
+		return c.CategoryID != categoryID
+	}).Result
 
-		return nil
-	}, categories)
+	for i := idx; i < len(categories); i++ {
+		categories[i].Rank--
+		err := h.repo.Update(tx, categories[i].CategoryID, dto.UpdateCategoryDTO{
+			Rank: &categories[i].Rank,
+		})
+		if err != nil {
+			return fmt.Errorf("update: %w", err)
+		}
+	}
+
+	if err := h.repo.Delete(tx, categoryID); err != nil {
+		return fmt.Errorf("delete: %w", err)
+	}
+
+	return nil
 }

@@ -5,6 +5,7 @@ import (
 
 	"domain"
 	"dto"
+	"household_bot/pkg/telegram"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -53,8 +54,16 @@ type HouseholdCategory interface {
 	GetByTitle(ctx context.Context, title string, inStock bool) (domain.HouseholdCategory, error)
 	GetProductsByCategoryAndSubcategory(ctx context.Context, cTitle, sTitle string, inStock bool) ([]domain.HouseholdProduct, error)
 	GetAll(ctx context.Context) ([]domain.HouseholdCategory, error)
+	GetAllByInStock(ctx context.Context, inStock bool) ([]domain.HouseholdCategory, error)
 	Save(ctx context.Context, c domain.HouseholdCategory) error
 	GetTopRank(ctx context.Context, inStock bool) (uint, error)
 	Delete(ctx context.Context, categoryID primitive.ObjectID) error
 	Update(ctx context.Context, categoryID primitive.ObjectID, dto dto.UpdateCategoryDTO) error
+}
+
+type HouseholdCatalogMsg interface {
+	Save(ctx context.Context, m telegram.CatalogMsg) error
+	GetAll(ctx context.Context) ([]telegram.CatalogMsg, error)
+	Delete(ctx context.Context, id primitive.ObjectID) error
+	DeleteByMsgID(ctx context.Context, msgID int) error
 }

@@ -8,6 +8,7 @@ import (
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"household_bot/internal/telegram/buttons"
 	"household_bot/internal/telegram/tg_errors"
+	"household_bot/pkg/telegram"
 )
 
 func (h *handler) Start(ctx context.Context, m *tg.Message) error {
@@ -48,10 +49,30 @@ func (h *handler) Menu(ctx context.Context, chatID int64) error {
 }
 
 func (h *handler) Catalog(ctx context.Context, chatID int64, prevMsgID *int) error {
+	var c tg.Chattable
 	if prevMsgID != nil {
 		editMsg := tg.NewEditMessageText(chatID, *prevMsgID, "Выберите тип каталога")
 		editMsg.ReplyMarkup = &buttons.CatalogType
-		return h.cleanSend(editMsg)
+		c = editMsg
+
+	} else {
+		msg := tg.NewMessage(chatID, "Выберите тип каталога")
+		msg.ReplyMarkup = buttons.CatalogType
+		c = msg
 	}
-	return h.sendWithKeyboard(chatID, "Выберите тип каталога", buttons.CatalogType)
+
+	return h.sendWithMessageID(c, func(msgID int) error {
+		catalogMsg := telegram.CatalogMsg{
+			MsgID: msgID,
+		}
+		err := h.catalogMsgService.Save(ctx, catalogMsg)
+		if err != nil {
+			return tg_errors.New(tg_errors.Config{
+				OriginalErr: err,
+				Handler:     "Catalog",
+				CausedBy:    "Save",
+			})
+		}
+		return nil
+	})
 }

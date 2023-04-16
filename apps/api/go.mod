@@ -17,9 +17,17 @@ require (
 )
 
 require (
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
+	github.com/elliotchance/pie/v2 v2.5.2 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/matoous/go-nanoid/v2 v2.0.0 // indirect
+	github.com/redis/go-redis/v9 v9.0.3 // indirect
+	github.com/vmihailenco/msgpack/v5 v5.3.5 // indirect
+	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
+	golang.org/x/exp v0.0.0-20220321173239-a90fa8a75705 // indirect
+	household_bot v0.0.0 // indirect
 	nanoid v0.0.0 // indirect
 )
 
@@ -50,7 +58,7 @@ require (
 	github.com/xdg-go/stringprep v1.0.3 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	go.uber.org/multierr v1.8.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.7.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
@@ -63,6 +71,7 @@ replace (
 	domain v0.0.0 => ../../libs/domain
 	dto v0.0.0 => ../../libs/dto
 	functools v0.0.0 => ../../libs/functools
+	household_bot v0.0.0 => ../household_bot
 	logger v0.0.0 => ../../libs/logger
 	nanoid => ../../libs/nanoid
 	onlineshop/database v0.0.0 => ../../libs/database

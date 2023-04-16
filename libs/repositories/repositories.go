@@ -6,34 +6,40 @@ import (
 )
 
 type Repositories struct {
-	ClothingCustomer  *clothingCustomerRepo
-	HouseholdCustomer *householdCustomerRepo
-	ClothingOrder     *orderRepo[domain.ClothingOrder]
-	HouseholdOrder    *orderRepo[domain.HouseholdOrder]
-	ClothingCatalog   *clothingCatalogRepo
-	HouseholdCategory *householdCategoryRepo
-	Rate              *rateRepo
+	HouseholdCustomer   *householdCustomerRepo
+	HouseholdOrder      *orderRepo[domain.HouseholdOrder]
+	HouseholdCategory   *householdCategoryRepo
+	HouseholdCatalogMsg *householdCatalogMsgRepo
+
+	ClothingCustomer *clothingCustomerRepo
+	ClothingOrder    *orderRepo[domain.ClothingOrder]
+	ClothingCatalog  *clothingCatalogRepo
+
+	Rate *rateRepo
 }
 
 const (
-	customers    = "customers"
 	customersHH  = "h-customers"
-	orders       = "orders"
+	categoriesHH = "h-categories"
 	ordersHH     = "h-orders"
-	catalog      = "catalog"
+	catalogMsgHH = "h-catalog_msg"
+
+	orders    = "orders"
+	customers = "customers"
+	catalog   = "catalog"
+
 	rateKeyValue = "rate_keyValue"
-	//todo: rename to h-categories
-	householdCategories = "household_categories"
 )
 
 func NewRepositories(db *database.Mongo, clothingOnChange ClothingOnChangeFunc, householdOnChange HouseholdOnChangeFunc) Repositories {
 	return Repositories{
-		ClothingCustomer:  NewClothingCustomerRepo(db.Collection(customers)),
-		HouseholdCustomer: NewHouseholdCustomerRepo(db.Collection(customersHH)),
-		ClothingOrder:     NewClothingOrderRepo(db.Collection(orders)),
-		HouseholdOrder:    NewHouseholdOrderRepo(db.Collection(ordersHH)),
-		ClothingCatalog:   NewClothingCatalogRepo(db.Collection(catalog), clothingOnChange),
-		Rate:              NewRateRepository(db.Collection(rateKeyValue)),
-		HouseholdCategory: NewHouseholdCategoryRepo(db.Collection(householdCategories), householdOnChange),
+		ClothingCustomer:    NewClothingCustomerRepo(db.Collection(customers)),
+		HouseholdCustomer:   NewHouseholdCustomerRepo(db.Collection(customersHH)),
+		ClothingOrder:       NewClothingOrderRepo(db.Collection(orders)),
+		HouseholdOrder:      NewHouseholdOrderRepo(db.Collection(ordersHH)),
+		ClothingCatalog:     NewClothingCatalogRepo(db.Collection(catalog), clothingOnChange),
+		Rate:                NewRateRepository(db.Collection(rateKeyValue)),
+		HouseholdCategory:   NewHouseholdCategoryRepo(db.Collection(categoriesHH), householdOnChange),
+		HouseholdCatalogMsg: NewHouseholdCatalogMsgRepo(db.Collection(catalogMsgHH)),
 	}
 }

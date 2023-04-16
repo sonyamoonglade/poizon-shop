@@ -7,8 +7,9 @@ import (
 	"net/http"
 
 	"domain"
-	f "github.com/brianvoe/gofakeit/v6"
 	"utils/testutil"
+
+	f "github.com/brianvoe/gofakeit/v6"
 )
 
 func (s *AppTestSuite) TestHouseholdNew() {
@@ -40,7 +41,7 @@ func (s *AppTestSuite) TestHouseholdNew() {
 	s.Run("should return all categories", func() {
 		ctx := context.Background()
 		for i := 0; i < 10; i++ {
-			require.NoError(s.householdCategoryService.New(ctx, f.Word()))
+			require.NoError(s.householdCategoryService.New(ctx, f.Word(), true))
 		}
 		url := "/api/household/categories/all"
 		req := testutil.NewJsonRequest(http.MethodGet, url, nil)

@@ -69,6 +69,8 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string) er
 			CausedBy:    "GetByTitle",
 		})
 	}
+	//todo: warning
+	fmt.Println(selectedCategory.InStock, "\n", inStock)
 	if customer.Cart.IsEmpty() {
 		customer.Cart.Add(p)
 	} else if selectedCategory.InStock == inStock {

@@ -18,6 +18,9 @@ func NewClient(addr string) *Client {
 		Addr: addr,
 	}
 	client := goredis.NewClient(opts)
+	if err := client.Ping(context.Background()).Err(); err != nil {
+		panic(err)
+	}
 	return &Client{c: client}
 }
 

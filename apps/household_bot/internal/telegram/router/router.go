@@ -124,6 +124,7 @@ func (r *Router) mapToHandler(ctx context.Context, u tg.Update) error {
 
 const (
 	Start = "/start"
+	Menu2 = "/menu"
 	Menu  = "Меню"
 )
 
@@ -140,7 +141,7 @@ func (r *Router) mapToCommandHandler(ctx context.Context, m *tg.Message) error {
 	switch {
 	case cmd(Start):
 		return r.handler.Start(ctx, m)
-	case cmd(Menu):
+	case cmd(Menu), cmd(Menu2):
 		return r.handler.Menu(ctx, chatID)
 	default:
 		state, err := r.stateProvider.GetState(ctx, chatID)

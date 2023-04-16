@@ -1,6 +1,7 @@
 package redis
 
 const (
-	HouseholdCatalogTopic = "household.catalog"
-	ClothingCatalogTopic  = "clothing.catalog"
+	HouseholdCatalogTopic     = "household.catalog"
+	HouseholdWipeCatalogTopic = "household.catalog.wipe"
+	ClothingCatalogTopic      = "clothing.catalog"
 )
