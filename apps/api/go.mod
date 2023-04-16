@@ -11,6 +11,7 @@ require (
 	go.uber.org/zap v1.24.0
 	logger v0.0.0
 	onlineshop/database v0.0.0
+	redis v0.0.0
 	repositories v0.0.0
 	utils v0.0.0
 )

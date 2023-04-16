@@ -48,14 +48,13 @@ type ClothingCatalog interface {
 	AddItem(ctx context.Context, item domain.ClothingProduct) error
 	RemoveItem(ctx context.Context, itemID primitive.ObjectID) error
 }
-
 type HouseholdCategory interface {
 	GetByID(ctx context.Context, categoryID primitive.ObjectID) (domain.HouseholdCategory, error)
-	GetByTitle(ctx context.Context, title string) (domain.HouseholdCategory, error)
-	GetProductsByCategoryAndSubcategory(ctx context.Context, cTitle, sTitle string, availableInStock bool) ([]domain.HouseholdProduct, error)
+	GetByTitle(ctx context.Context, title string, inStock bool) (domain.HouseholdCategory, error)
+	GetProductsByCategoryAndSubcategory(ctx context.Context, cTitle, sTitle string, inStock bool) ([]domain.HouseholdProduct, error)
 	GetAll(ctx context.Context) ([]domain.HouseholdCategory, error)
 	Save(ctx context.Context, c domain.HouseholdCategory) error
-	GetTopRank(ctx context.Context) (uint, error)
+	GetTopRank(ctx context.Context, inStock bool) (uint, error)
 	Delete(ctx context.Context, categoryID primitive.ObjectID) error
 	Update(ctx context.Context, categoryID primitive.ObjectID, dto dto.UpdateCategoryDTO) error
 }

@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"domain"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"redis"
 	"syscall"
 	"time"
 
@@ -19,6 +21,8 @@ import (
 	"onlineshop/database"
 	"repositories"
 	"services"
+
+	"github.com/redis/go-redis/v9"
 )
 
 func main() {
@@ -61,6 +65,28 @@ func run() error {
 		return fmt.Errorf("error creating telegram bot: %w", err)
 	}
 	catalogProvider := catalog.NewProvider()
+
+	client := redis.NewClient(cfg.Redis.Addr)
+	bus := redis.NewBus[[]domain.HouseholdCategory](client)
+
+	redCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	onCatalogUpdate := func(items []domain.HouseholdCategory) {
+
+	}
+	redisErrorHandler := func(topic string, err error) {
+
+	}
+	go func() {
+		bus.SubscribeToTopicWithCallback(
+			redCtx,
+			redis.HouseholdCatalogTopic,
+			onCatalogUpdate,
+			redisErrorHandler,
+		)
+	}()
+
 	orderService := services.NewHouseholdOrderService(repos.HouseholdOrder)
 	tgHandler := handler.NewHandler(tgBot, repos.Rate, repos, catalogProvider, orderService)
 	tgRouter := router.NewRouter(tgBot.GetUpdates(),

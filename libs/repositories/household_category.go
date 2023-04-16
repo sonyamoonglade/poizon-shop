@@ -7,6 +7,7 @@ import (
 
 	"domain"
 	"dto"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -27,8 +28,8 @@ func NewHouseholdCategoryRepo(categories *mongo.Collection, onChangeHook Househo
 	}
 }
 
-func (r *householdCategoryRepo) GetTopRank(ctx context.Context) (uint, error) {
-	numDocuments, err := r.categories.CountDocuments(ctx, bson.D{})
+func (r *householdCategoryRepo) GetTopRank(ctx context.Context, inStock bool) (uint, error) {
+	numDocuments, err := r.categories.CountDocuments(ctx, bson.M{"inStock": inStock})
 	if err != nil {
 		return 0, fmt.Errorf("count documents: %w", err)
 	}
@@ -128,8 +129,11 @@ func (r *householdCategoryRepo) GetByID(ctx context.Context, categoryID primitiv
 	return c, nil
 }
 
-func (r *householdCategoryRepo) GetByTitle(ctx context.Context, title string) (domain.HouseholdCategory, error) {
-	res := r.categories.FindOne(ctx, bson.M{"title": title})
+func (r *householdCategoryRepo) GetByTitle(
+	ctx context.Context,
+	title string,
+	inStock bool) (domain.HouseholdCategory, error) {
+	res := r.categories.FindOne(ctx, bson.M{"title": title, "inStock": inStock})
 	if err := res.Err(); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
 			return domain.HouseholdCategory{}, domain.ErrCategoryNotFound
@@ -143,17 +147,18 @@ func (r *householdCategoryRepo) GetByTitle(ctx context.Context, title string) (d
 	return c, nil
 }
 
-func (r *householdCategoryRepo) GetProductsByCategoryAndSubcategory(ctx context.Context,
+func (r *householdCategoryRepo) GetProductsByCategoryAndSubcategory(
+	ctx context.Context,
 	cTitle,
 	sTitle string,
-	availableInStock bool) ([]domain.HouseholdProduct, error) {
+	inStock bool) ([]domain.HouseholdProduct, error) {
 
-	filter := bson.M{"title": cTitle}
+	filter := bson.M{"title": cTitle, "inStock": inStock}
 	fields := bson.M{
 		"subcategories": 1,
 	}
-	opts := options.FindOne().SetProjection(fields)
 
+	opts := options.FindOne().SetProjection(fields)
 	res := r.categories.FindOne(ctx, filter, opts)
 	if err := res.Err(); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -164,18 +169,17 @@ func (r *householdCategoryRepo) GetProductsByCategoryAndSubcategory(ctx context.
 	type productsResp struct {
 		Subcategories []domain.Subcategory `bson:"subcategories"`
 	}
-	var resp productsResp
 
+	var resp productsResp
 	if err := res.Decode(&resp); err != nil {
 		return nil, err
 	}
+
 	var products []domain.HouseholdProduct
 	for _, sub := range resp.Subcategories {
 		if sub.Title == sTitle {
 			for _, p := range sub.Products {
-				if p.AvailableInStock == availableInStock {
-					products = append(products, p)
-				}
+				products = append(products, p)
 			}
 		}
 	}

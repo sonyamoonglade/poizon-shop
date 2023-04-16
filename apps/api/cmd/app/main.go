@@ -2,24 +2,27 @@ package main
 
 import (
 	"context"
+	"domain"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"redis"
 	"syscall"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"go.uber.org/zap"
 	"logger"
 	"onlineshop/api/config"
 	"onlineshop/api/internal/handler"
 	"onlineshop/database"
 	"repositories"
 	"services"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -53,7 +56,36 @@ func run() error {
 		return fmt.Errorf("error connecting to mongo: %w", err)
 	}
 
-	repos := repositories.NewRepositories(mongo, nil, nil)
+	client := redis.NewClient(cfg.Redis.Addr)
+	// Bus for household catalog
+	householdBus := redis.NewBus[[]domain.HouseholdCategory](client)
+	// Bus for clothing catalog
+	clothingBus := redis.NewBus[[]domain.ClothingProduct](client)
+	redCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	householdHook := func(items []domain.HouseholdCategory) {
+		err := householdBus.SendToTopic(
+			redCtx,
+			redis.HouseholdCatalogTopic,
+			items,
+		)
+		if err != nil {
+			logger.Get().Error("householdBus.sendToTopic", zap.Error(err))
+		}
+	}
+
+	clothingHook := func(items []domain.ClothingProduct) {
+		err := clothingBus.SendToTopic(
+			redCtx,
+			redis.ClothingCatalogTopic,
+			items,
+		)
+		if err != nil {
+			logger.Get().Error("clothingBus.sendToTopic", zap.Error(err))
+		}
+	}
+	repos := repositories.NewRepositories(mongo, clothingHook, householdHook)
+	householdCategoryService := services.NewHouseholdCategoryService(repos.HouseholdCategory, mongo)
 
 	// HTTP api
 	app := fiber.New(fiber.Config{
@@ -81,8 +113,7 @@ func run() error {
 		return c.Next()
 	})
 
-	hhCategoryService := services.NewHouseholdCategoryService(repos.HouseholdCategory, mongo)
-	apiController := handler.NewHandler(repos, hhCategoryService)
+	apiController := handler.NewHandler(repos, householdCategoryService)
 	apiController.RegisterRoutes(app, cfg.HTTP.ApiKey)
 
 	if err := app.Listen(":" + cfg.HTTP.Port); err != nil {

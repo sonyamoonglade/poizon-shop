@@ -14,6 +14,10 @@ type AppConfig struct {
 		Port   string
 		ApiKey string
 	}
+
+	Redis struct {
+		Addr string
+	}
 }
 
 func ReadConfig() (AppConfig, error) {
@@ -37,6 +41,11 @@ func ReadConfig() (AppConfig, error) {
 		return AppConfig{}, fmt.Errorf("missing API_KEY env")
 	}
 
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		return AppConfig{}, fmt.Errorf("missing REDIS_ADDR env")
+	}
+
 	return AppConfig{
 		Database: struct {
 			URI  string
@@ -51,6 +60,11 @@ func ReadConfig() (AppConfig, error) {
 		}{
 			Port:   port,
 			ApiKey: apiKey,
+		},
+		Redis: struct {
+			Addr string
+		}{
+			Addr: redisAddr,
 		},
 	}, nil
 }

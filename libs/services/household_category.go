@@ -7,9 +7,10 @@ import (
 	"domain"
 	"dto"
 	"functools"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"onlineshop/database"
 	"repositories"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type householdCategoryService struct {
@@ -24,10 +25,13 @@ func NewHouseholdCategoryService(repo repositories.HouseholdCategory, t database
 	}
 }
 
-func (h *householdCategoryService) New(ctx context.Context, title string) error {
-	category := domain.NewHouseholdCategory(title)
+func (h *householdCategoryService) New(
+	ctx context.Context,
+	title string,
+	inStock bool) error {
+	category := domain.NewHouseholdCategory(title, inStock)
 	return h.transactor.WithTransaction(ctx, func(tx context.Context) error {
-		rank, err := h.repo.GetTopRank(ctx)
+		rank, err := h.repo.GetTopRank(ctx, inStock)
 		if err != nil {
 			return fmt.Errorf("get top rank: %w", err)
 		}

@@ -42,7 +42,7 @@ func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, o
 }
 
 func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int, args []string) error {
-	onlyAvailableInStock, err := strconv.ParseBool(args[1])
+	inStock, err := strconv.ParseBool(args[1])
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -52,7 +52,7 @@ func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int
 	}
 
 	cTitle := args[0]
-	category, err := h.categoryRepo.GetByTitle(ctx, cTitle)
+	category, err := h.categoryRepo.GetByTitle(ctx, cTitle, inStock)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -68,16 +68,16 @@ func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int
 		}
 	}
 	cb := callback.CTypeOrder
-	if onlyAvailableInStock {
+	if inStock {
 		cb = callback.CTypeInStock
 	}
 	// To prev step, reInject inStock and cTitle
-	backButton := buttons.NewBackButton(cb, &cTitle, nil, &onlyAvailableInStock)
+	backButton := buttons.NewBackButton(cb, &cTitle, nil, &inStock)
 	keyboard := buttons.NewSubcategoryButtons(
 		cTitle,
 		subcategoryTitles,
 		callback.SelectSubcategory,
-		onlyAvailableInStock,
+		inStock,
 		backButton,
 	)
 	editMsg := tg.NewEditMessageText(chatID, prevMsgID, "Подкатегории")

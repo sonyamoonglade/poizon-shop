@@ -7,11 +7,11 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-type Bus[PayloadType msgpack.MarshalerUnmarshaler] struct {
+type Bus[PayloadType any] struct {
 	client *Client
 }
 
-func NewBus[PayloadType msgpack.MarshalerUnmarshaler](c *Client) *Bus[PayloadType] {
+func NewBus[PayloadType any](c *Client) *Bus[PayloadType] {
 	return &Bus[PayloadType]{
 		client: c,
 	}

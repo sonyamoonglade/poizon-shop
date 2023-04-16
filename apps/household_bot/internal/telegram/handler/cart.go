@@ -7,10 +7,11 @@ import (
 
 	"domain"
 	"dto"
-	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"household_bot/internal/telegram/buttons"
 	"household_bot/internal/telegram/templates"
 	"household_bot/internal/telegram/tg_errors"
+
+	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string) error {
@@ -60,10 +61,17 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string) er
 			p = product
 		}
 	}
-
+	selectedCategory, err := h.categoryRepo.GetByTitle(ctx, cTitle, inStock)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AddToCart",
+			CausedBy:    "GetByTitle",
+		})
+	}
 	if customer.Cart.IsEmpty() {
 		customer.Cart.Add(p)
-	} else if customer.Cart.First().AvailableInStock == inStock {
+	} else if selectedCategory.InStock == inStock {
 		// Check if 0th product has the same inStock value
 		customer.Cart.Add(p)
 	} else {
@@ -71,7 +79,7 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string) er
 			chatID,
 			templates.TryAddWithInvalidInStock(
 				inStock,
-				customer.Cart.First().AvailableInStock,
+				selectedCategory.InStock,
 			),
 			buttons.RouteToCatalog,
 		)
