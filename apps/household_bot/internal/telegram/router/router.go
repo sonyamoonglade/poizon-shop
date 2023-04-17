@@ -38,8 +38,7 @@ type RouteHandler interface {
 	ProductCard(ctx context.Context, chatID int64, prevMsgID int, args []string) error
 	AddToCart(ctx context.Context, chatID int64, args []string) error
 
-	AskForOrderType(ctx context.Context, chatID int64) error
-	HandleOrderTypeInput(ctx context.Context, chatID int64, args []string) error
+	AskForFIO(ctx context.Context, chatID int64) error
 	HandleFIOInput(ctx context.Context, m *tg.Message) error
 	HandlePhoneNumberInput(ctx context.Context, m *tg.Message) error
 	HandleDeliveryAddressInput(ctx context.Context, m *tg.Message) error
@@ -208,15 +207,13 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 		return r.handler.ProductCard(ctx, chatID, msgID, parsedArgs)
 	case callback.AddToCart:
 		return r.handler.AddToCart(ctx, chatID, parsedArgs)
-	case callback.SelectOrderType:
-		return r.handler.HandleOrderTypeInput(ctx, chatID, parsedArgs)
 	case callback.EditCart:
 		return r.handler.EditCart(ctx, chatID, msgID)
 	case callback.DeletePositionFromCart:
 		return r.handler.DeletePositionFromCart(ctx, chatID, msgID, parsedArgs)
 	case callback.MakeOrder:
 		// Initial step to make order
-		return r.handler.AskForOrderType(ctx, chatID)
+		return r.handler.AskForFIO(ctx, chatID)
 	case callback.AcceptPayment:
 		return r.handler.HandlePayment(ctx, c, parsedArgs)
 	default:

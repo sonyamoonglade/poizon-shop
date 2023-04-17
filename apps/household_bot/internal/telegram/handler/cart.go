@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	fn "github.com/elliotchance/pie/v2"
 	"strconv"
 
 	"domain"
@@ -47,6 +48,7 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string) er
 			CausedBy:    "ParseBool",
 		})
 	}
+
 	products, err := h.categoryRepo.GetProductsByCategoryAndSubcategory(ctx, cTitle, sTitle, inStock)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
@@ -55,13 +57,15 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string) er
 			CausedBy:    "GetProductsByCategoryAndSubcategory",
 		})
 	}
-	var p domain.HouseholdProduct
-	for _, product := range products {
-		if product.Name == pName {
-			p = product
-		}
-	}
-	selectedCategory, err := h.categoryRepo.GetByTitle(ctx, cTitle, inStock)
+
+	currentProduct := products[fn.
+		Of(products).
+		FindFirstUsing(func(p domain.HouseholdProduct) bool {
+			return p.Name == pName
+		})]
+
+	// Category that customer is adding product with
+	currentCategory, err := h.categoryRepo.GetByID(ctx, currentProduct.CategoryID)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -69,19 +73,31 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string) er
 			CausedBy:    "GetByTitle",
 		})
 	}
-	//todo: warning
-	fmt.Println(selectedCategory.InStock, "\n", inStock)
+
+	firstProduct, exists := customer.Cart.First()
+
 	if customer.Cart.IsEmpty() {
-		customer.Cart.Add(p)
-	} else if selectedCategory.InStock == inStock {
-		// Check if 0th product has the same inStock value
-		customer.Cart.Add(p)
+		customer.Cart.Add(currentProduct)
+	} else if exists {
+		// Have to check if currentCategory is the same as 0th element in cart
+		firstProductCategory, err := h.categoryRepo.GetByID(ctx, firstProduct.CategoryID)
+		if err != nil {
+			return tg_errors.New(tg_errors.Config{
+				OriginalErr: err,
+				Handler:     "AddToCart",
+				CausedBy:    "GetByID",
+			})
+		}
+		// If inStock field is the same then it's fine to add
+		if firstProductCategory.InStock == currentCategory.InStock {
+			customer.Cart.Add(currentProduct)
+		}
 	} else {
 		return h.sendWithKeyboard(
 			chatID,
 			templates.TryAddWithInvalidInStock(
 				inStock,
-				selectedCategory.InStock,
+				!inStock,
 			),
 			buttons.RouteToCatalog,
 		)

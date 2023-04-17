@@ -24,6 +24,7 @@ type HouseholdCategory interface {
 	New(ctx context.Context, title string, inStock bool) error
 	Delete(ctx context.Context, categoryID primitive.ObjectID) error
 	Update(ctx context.Context, categoryID primitive.ObjectID, dto dto.UpdateCategoryDTO) error
+	CheckIfAllProductsExist(ctx context.Context, productIDs []primitive.ObjectID) (bool, error)
 }
 
 type Deleter interface {

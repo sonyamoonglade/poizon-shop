@@ -92,7 +92,8 @@ func (s *AppTestSuite) setupDeps() {
 
 	updates := make(chan tg.Update)
 	mockBot := new(MockBot)
-	tgHandler := handler.NewHandler(mockBot, repos.Rate, repos, catalogProvider, orderService)
+	catalogMsgService := services.NewHouseholdCatalogMsgService(repos.HouseholdCatalogMsg, mongo)
+	tgHandler := handler.NewHandler(mockBot, repos.Rate, repos, catalogProvider, orderService, catalogMsgService)
 	tgRouter := router.NewRouter(updates, tgHandler, repos.ClothingCustomer, time.Second*5)
 
 	mockBot.On("Send", mock.Anything).Return(tg.Message{}, nil)

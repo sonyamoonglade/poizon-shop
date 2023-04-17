@@ -67,6 +67,9 @@ func (r *householdCategoryRepo) Update(ctx context.Context, categoryID primitive
 				if product.ProductID.IsZero() {
 					subcategory.Products[ip].ProductID = primitive.NewObjectID()
 				}
+				if product.CategoryID.IsZero() {
+					product.CategoryID = categoryID
+				}
 			}
 		}
 		upd["subcategories"] = dto.Subcategories

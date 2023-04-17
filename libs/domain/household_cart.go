@@ -2,8 +2,11 @@ package domain
 
 type HouseholdCart []HouseholdProduct
 
-func (c *HouseholdCart) First() HouseholdProduct {
-	return (*c)[0]
+func (c *HouseholdCart) First() (HouseholdProduct, bool) {
+	if len(*c) == 0 {
+		return HouseholdProduct{}, false
+	}
+	return (*c)[0], true
 }
 
 func (c *HouseholdCart) Clear() {
@@ -16,17 +19,6 @@ func (c *HouseholdCart) IsEmpty() bool {
 
 func (c *HouseholdCart) Add(p HouseholdProduct) {
 	*c = append(*c, p)
-}
-
-func (c *HouseholdCart) Remove(productID string) {
-	for i, p := range *c {
-		if p.ProductID.Hex() == productID {
-			// swap to end and slice
-			c.swap(i, len(*c)-1)
-			*c = (*c)[:len(*c)-1]
-			break
-		}
-	}
 }
 
 func (c *HouseholdCart) RemoveAt(index int) {

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"functools"
 
 	"domain"
 	"dto"
@@ -101,4 +102,40 @@ func (h *householdCategoryService) fixCategoriesRanks(
 	}
 
 	return nil
+}
+
+func (h *householdCategoryService) CheckIfAllProductsExist(
+	ctx context.Context,
+	productIDs []primitive.ObjectID,
+	inStock bool,
+) (bool, error) {
+	categories, err := h.repo.GetAllByInStock(ctx, inStock)
+	if err != nil {
+		return false, fmt.Errorf("get all by in stock: :%w", err)
+	}
+
+	allProductsUnflat := fn.Map(
+		categories,
+		func(c domain.HouseholdCategory) []domain.HouseholdProduct {
+			reduceFunc := func(acc []domain.HouseholdProduct, el domain.Subcategory) []domain.HouseholdProduct {
+				return append(acc, el.Products...)
+			}
+			return functools.Reduce(reduceFunc, c.Subcategories, nil)
+		})
+
+	allProducts := fn.Flat(allProductsUnflat)
+
+	allExist := fn.
+		Of(allProducts).
+		All(func(categoryProduct domain.HouseholdProduct) bool {
+			idx := fn.
+				Of(productIDs).
+				FindFirstUsing(func(cartProductID primitive.ObjectID) bool {
+					return categoryProduct.ProductID == cartProductID
+				})
+			// Means it's found
+			return idx != -1
+		})
+
+	return allExist, nil
 }

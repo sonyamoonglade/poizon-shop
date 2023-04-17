@@ -23,9 +23,8 @@ func ForEach[A any](f foreachFunc[A], input []A) error {
 	return nil
 }
 
-func Reduce[A, B any](f func(B, A) B, s []A, initValue B) B {
-	acc := initValue
-	for _, v := range s {
+func Reduce[IterType, AccType any](f func(acc AccType, el IterType) AccType, arr []IterType, acc AccType) AccType {
+	for _, v := range arr {
 		acc = f(acc, v)
 	}
 	return acc

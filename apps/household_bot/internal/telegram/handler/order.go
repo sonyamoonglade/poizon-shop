@@ -15,73 +15,7 @@ import (
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (h *handler) AskForOrderType(ctx context.Context, chatID int64) error {
-	var telegramID = chatID
-
-	if err := h.customerRepo.UpdateState(ctx, telegramID, domain.StateWaitingForOrderType); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "AskForOrderType",
-			CausedBy:    "UpdateState",
-		})
-	}
-	return h.sendWithKeyboard(chatID, templates.AskForOrderType(), buttons.OrderTypeSelect)
-}
-
-func (h *handler) HandleOrderTypeInput(ctx context.Context, chatID int64, args []string) error {
-	var (
-		telegramID   = chatID
-		orderTypeStr = args[0]
-	)
-	if err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForOrderType); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandleOrderTypeInput",
-			CausedBy:    "checkRequiredState",
-		})
-	}
-
-	orderType, err := domain.NewOrderTypeFromString(orderTypeStr)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandleOrderTypeInput",
-			CausedBy:    "NewOrderTypeFromString",
-		})
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandleOrderTypeInput",
-			CausedBy:    "GetByTelegramID",
-		})
-	}
-
-	customer.UpdateMetaOrderType(orderType)
-	updateDTO := dto.UpdateHouseholdCustomerDTO{
-		State: &domain.StateWaitingForFIO,
-		Meta:  &customer.Meta,
-	}
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandleOrderTypeInput",
-			CausedBy:    "Update",
-		})
-	}
-	if err := h.askForFIO(ctx, chatID); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandleOrderTypeInput",
-			CausedBy:    "askForFIO",
-		})
-	}
-	return nil
-}
-
-func (h *handler) askForFIO(ctx context.Context, chatID int64) error {
+func (h *handler) AskForFIO(ctx context.Context, chatID int64) error {
 	var telegramID = chatID
 	if err := h.customerRepo.UpdateState(ctx, telegramID, domain.StateWaitingForFIO); err != nil {
 		return tg_errors.New(tg_errors.Config{
@@ -240,8 +174,7 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 		})
 	}
 
-	isExpress := *customer.Meta.NextOrderType == domain.OrderTypeExpress
-	order := domain.NewHouseholdOrder(customer, address, isExpress, shortID)
+	order := domain.NewHouseholdOrder(customer, address, shortID)
 
 	if err := h.orderService.Save(ctx, order); err != nil {
 		return tg_errors.New(tg_errors.Config{

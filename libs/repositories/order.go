@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"logger"
 
 	"domain"
 	"dto"
@@ -123,7 +124,7 @@ func (o *orderRepo[T]) GetAllForCustomer(ctx context.Context, customerID primiti
 	if err := res.All(ctx, &orders); err != nil {
 		return nil, err
 	}
-
+	logger.Get().Sugar().Debugf("cust: %s\ngot orders: %v\n", customerID.String(), orders)
 	return orders, nil
 }
 

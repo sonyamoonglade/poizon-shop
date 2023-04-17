@@ -10,7 +10,6 @@ type HouseholdCustomer struct {
 	PhoneNumber *string            `json:"phoneNumber,omitempty" bson:"phoneNumber,omitempty"`
 	State       State              `json:"state" bson:"state"`
 	Cart        HouseholdCart      `json:"cart" bson:"cart"`
-	Meta        Meta               `json:"meta" bson:"meta"`
 }
 
 func NewHouseholdCustomer(telegramID int64, username string) HouseholdCustomer {
@@ -26,8 +25,4 @@ func (c *HouseholdCustomer) UpdateState(newState State) {
 }
 func (c *HouseholdCustomer) GetTgState() uint8 {
 	return c.State.V
-}
-
-func (c *HouseholdCustomer) UpdateMetaOrderType(typ OrderType) {
-	c.Meta.NextOrderType = &typ
 }

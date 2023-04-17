@@ -19,7 +19,7 @@ func NewProvider() *Provider {
 	}
 }
 
-// categories and it's subcategories are expected to be already sorted
+// Load categories and it's subcategories are expected to be already sorted
 func (p *Provider) Load(items []domain.HouseholdCategory) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -29,65 +29,36 @@ func (p *Provider) Load(items []domain.HouseholdCategory) {
 	}
 }
 
-func (p *Provider) GetProductAt(cTitle, sTitle string, offset int) (domain.HouseholdProduct, bool) {
-	if !p.HasAt(cTitle, sTitle, offset) {
-		return domain.HouseholdProduct{}, false
-	}
+func (p *Provider) GetCategory(title string, inStock bool) (domain.HouseholdCategory, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	for _, c := range p.items {
-		for _, s := range c.Subcategories {
-			for ip, p := range s.Products {
-				if c.Title == cTitle && s.Title == sTitle && ip == offset {
-					return p, true
-				}
-			}
-		}
-	}
-	return domain.HouseholdProduct{}, false
-}
-
-func (p *Provider) HasAt(cTitle, sTitle string, offset int) bool {
-	subc, ok := p.GetSubcategory(cTitle, sTitle)
-	if !ok {
-		return false
-	}
-	if offset >= 0 && offset < len(subc.Products) {
-		return true
-	}
-	return false
-}
-
-func (p *Provider) GetCategory(title string) (domain.HouseholdCategory, bool) {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	for _, c := range p.items {
-		if c.Title == title {
+		if c.Title == title && c.InStock == inStock {
 			return c, true
 		}
 	}
 	return domain.HouseholdCategory{}, false
 }
 
-func (p *Provider) GetCategoryTitles(active bool) []string {
+func (p *Provider) GetCategoryTitles(active bool, inStock bool) []string {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	titles := make([]string, 0, len(p.items))
 	for _, c := range p.items {
-		if c.Active == active {
+		if c.Active == active && c.InStock == inStock {
 			titles = append(titles, c.Title)
 		}
 	}
 	return titles
 }
 
-func (p *Provider) GetSubcategory(cTitle, subcatTitle string) (domain.Subcategory, bool) {
+func (p *Provider) GetSubcategory(cTitle, sTitle string, inStock bool) (domain.Subcategory, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	for _, c := range p.items {
-		if c.Title == cTitle {
+		if c.Title == cTitle && c.InStock == inStock {
 			for _, subC := range c.Subcategories {
-				if subC.Title == subcatTitle {
+				if subC.Title == sTitle {
 					return subC, true
 				}
 			}
@@ -96,12 +67,12 @@ func (p *Provider) GetSubcategory(cTitle, subcatTitle string) (domain.Subcategor
 	return domain.Subcategory{}, false
 }
 
-func (p *Provider) GetSubcategoryTitles(cTitle string, active bool) []string {
+func (p *Provider) GetSubcategoryTitles(cTitle string, active bool, inStock bool) []string {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	var titles []string
 	for _, c := range p.items {
-		if c.Title == cTitle {
+		if c.Title == cTitle && c.InStock == inStock {
 			for _, subC := range c.Subcategories {
 				if subC.Active == active {
 					titles = append(titles, subC.Title)
@@ -110,6 +81,21 @@ func (p *Provider) GetSubcategoryTitles(cTitle string, active bool) []string {
 		}
 	}
 	return titles
+}
+
+func (p *Provider) GetProducts(cTitle, sTitle string, inStock bool) []domain.HouseholdProduct {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	for _, c := range p.items {
+		if c.InStock == inStock && c.Title == cTitle {
+			for _, s := range c.Subcategories {
+				if s.Title == sTitle {
+					return s.Products
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (p *Provider) MakeOnChangeHook() repositories.HouseholdOnChangeFunc {
