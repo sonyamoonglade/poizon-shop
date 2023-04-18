@@ -26,9 +26,10 @@ func NewBody(b interface{}) io.Reader {
 	return bytes.NewReader(bodyBytes)
 }
 
-func NewJsonRequest(method, url string, body any) *http.Request {
+func NewJsonRequest(method, url, key string, body any) *http.Request {
 	req, _ := http.NewRequest(method, BuildURL(url), NewBody(body))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Api-Key", key)
 	return req
 }
 

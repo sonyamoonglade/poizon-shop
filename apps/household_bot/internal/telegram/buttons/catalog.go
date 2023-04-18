@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	RouteToCatalog = jumpToCatalog()
+	RouteToCatalogOrCart = jumpToCatalogOrCart()
 )
 
 func NewCategoryButtons(titles []string, cb callback.Callback, inStock bool, back BackButton) tg.InlineKeyboardMarkup {
@@ -64,10 +64,13 @@ func NewProductCardButtons(args ProductCardButtonsArgs) tg.InlineKeyboardMarkup 
 	return tg.NewInlineKeyboardMarkup(rows...)
 }
 
-func jumpToCatalog() tg.InlineKeyboardMarkup {
+func jumpToCatalogOrCart() tg.InlineKeyboardMarkup {
 	return tg.NewInlineKeyboardMarkup(
 		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("В каталог", callback.Inject(callback.Catalog)),
+		),
+		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("В корзину", callback.Inject(callback.MyCart)),
 		),
 	)
 }

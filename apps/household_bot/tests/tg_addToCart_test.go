@@ -2,10 +2,11 @@ package tests
 
 import (
 	"context"
+	"strconv"
+
 	"domain"
 	f "github.com/brianvoe/gofakeit/v6"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"strconv"
 )
 
 func (s *AppTestSuite) TestHandlerAddToCart() {
@@ -82,6 +83,7 @@ func (s *AppTestSuite) TestHandlerAddToCart() {
 			pName      = c2.Subcategories[0].Products[0].Name
 		)
 		expectedArgs := []string{cTitle, sTitle, inStockStr, pName}
+
 		err = s.tghandler.AddToCart(ctx, telegramID, expectedArgs)
 		require.NoError(err)
 

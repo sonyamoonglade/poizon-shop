@@ -50,6 +50,6 @@ func (o *orderService[T]) UpdateToPaid(ctx context.Context, customerID primitive
 	return o.repo.UpdateToPaid(ctx, customerID, shortID)
 }
 
-func (o *orderService[T]) GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID) ([]T, error) {
-	return o.repo.GetAllForCustomer(ctx, customerID)
+func (o *orderService[T]) GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID, source domain.Source) ([]T, error) {
+	return o.repo.GetAllForCustomer(ctx, customerID, source)
 }

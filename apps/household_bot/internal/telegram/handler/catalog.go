@@ -13,32 +13,14 @@ import (
 	"household_bot/internal/telegram/tg_errors"
 	"household_bot/pkg/telegram"
 
-	fn "github.com/elliotchance/pie/v2"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, inStock bool) error {
-	categories, err := h.categoryRepo.GetAllByInStock(ctx, inStock)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "Categories",
-			CausedBy:    "GetAll",
-		})
-	}
-	if categories == nil {
+	categoryTitles := h.catalogProvider.GetActiveCategoryTitlesByInStock(inStock)
+	if categoryTitles == nil {
 		return h.sendMessage(chatID, "no categories")
 	}
-
-	onlyActive := fn.
-		Of(categories).
-		Filter(func(c domain.HouseholdCategory) bool {
-			return c.Active
-		}).
-		Result
-	categoryTitles := fn.Map(onlyActive, func(c domain.HouseholdCategory) string {
-		return c.Title
-	})
 
 	// To prev step, reInject inStock
 	backButton := buttons.NewBackButton(callback.Catalog, nil, nil, &inStock)
@@ -50,6 +32,7 @@ func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, i
 }
 
 func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int, args []string) error {
+	cTitle := args[0]
 	inStock, err := strconv.ParseBool(args[1])
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
@@ -59,26 +42,13 @@ func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int
 		})
 	}
 
-	cTitle := args[0]
-	category, err := h.categoryRepo.GetByTitle(ctx, cTitle, inStock)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "Subcategories",
-			CausedBy:    "GetByTitle",
-		})
-	}
+	subcategoryTitles := h.catalogProvider.GetSubcategoryTitles(cTitle, inStock)
 
-	var subcategoryTitles []string
-	for _, s := range category.Subcategories {
-		if s.Active {
-			subcategoryTitles = append(subcategoryTitles, s.Title)
-		}
-	}
 	cb := callback.CTypeOrder
 	if inStock {
 		cb = callback.CTypeInStock
 	}
+
 	// To prev step, reInject inStock and cTitle
 	backButton := buttons.NewBackButton(cb, &cTitle, nil, &inStock)
 	keyboard := buttons.NewSubcategoryButtons(
@@ -88,6 +58,7 @@ func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int
 		inStock,
 		backButton,
 	)
+
 	// todo:into template
 	text := fmt.Sprintf("Type: %s\nCategory: %s\nSubcategories:", domain.InStockToString(inStock), cTitle)
 	editMsg := tg.NewEditMessageText(chatID, prevMsgID, text)
@@ -120,7 +91,6 @@ func (h *handler) Products(ctx context.Context, chatID int64, prevMsgID int, arg
 	// }
 	backButton := buttons.NewBackButton(callback.SelectCategory, &cTitle, nil, &inStock)
 	c, err := h.fetchProductsAndGetChattable(
-		ctx,
 		chatID,
 		true,
 		&prevMsgID,
@@ -168,22 +138,8 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 			CausedBy:    "ParseBool",
 		})
 	}
-	// Todo: replace with catalog provider
-	products, err := h.categoryRepo.GetProductsByCategoryAndSubcategory(ctx, cTitle, sTitle, inStock)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "ProductCard",
-			CausedBy:    "GetProductsByCategoryAndSubcategory",
-		})
-	}
 
-	var p domain.HouseholdProduct
-	for _, product := range products {
-		if product.Name == productName {
-			p = product
-		}
-	}
+	p := h.catalogProvider.GetProduct(cTitle, sTitle, productName, inStock)
 
 	photo := tg.NewPhoto(chatID, tg.FileURL(p.ImageURL))
 	photo.Caption = templates.HouseholdProductCaption(p)
@@ -211,7 +167,8 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 
 	return h.sendWithMessageID(photo, func(msgID int) error {
 		catalogMsg := telegram.CatalogMsg{
-			MsgID: msgID,
+			MsgID:  msgID,
+			ChatID: chatID,
 		}
 		err := h.catalogMsgService.Save(ctx, catalogMsg)
 		if err != nil {
@@ -275,7 +232,6 @@ func (h *handler) ProductsNew(ctx context.Context,
 
 	backButton := buttons.NewBackButton(callback.SelectCategory, &cTitle, nil, &inStock)
 	c, err := h.fetchProductsAndGetChattable(
-		ctx,
 		chatID,
 		false,
 		nil,
@@ -294,7 +250,8 @@ func (h *handler) ProductsNew(ctx context.Context,
 
 	return h.sendWithMessageID(c, func(msgID int) error {
 		catalogMsg := telegram.CatalogMsg{
-			MsgID: msgID,
+			MsgID:  msgID,
+			ChatID: chatID,
 		}
 		err := h.catalogMsgService.Save(ctx, catalogMsg)
 		if err != nil {
@@ -308,7 +265,7 @@ func (h *handler) ProductsNew(ctx context.Context,
 	})
 }
 
-func (h *handler) fetchProductsAndGetChattable(ctx context.Context,
+func (h *handler) fetchProductsAndGetChattable(
 	chatID int64,
 	edit bool,
 	editMsgID *int,
@@ -317,14 +274,7 @@ func (h *handler) fetchProductsAndGetChattable(ctx context.Context,
 	sTitle string,
 	inStock bool,
 ) (tg.Chattable, error) {
-	products, err := h.categoryRepo.GetProductsByCategoryAndSubcategory(ctx, cTitle, sTitle, inStock)
-	if err != nil {
-		return nil, tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "fetchProductsAndGetChattable",
-			CausedBy:    "GetProductsByCategoryAndSubcategory",
-		})
-	}
+	products := h.catalogProvider.GetProducts(cTitle, sTitle, inStock)
 	keyboard := buttons.NewProductsButtons(buttons.ProductButtonsArgs{
 		CTitle:  cTitle,
 		STitle:  sTitle,

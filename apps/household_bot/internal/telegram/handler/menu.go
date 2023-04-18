@@ -7,6 +7,7 @@ import (
 	"domain"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"household_bot/internal/telegram/buttons"
+	"household_bot/internal/telegram/templates"
 	"household_bot/internal/telegram/tg_errors"
 	"household_bot/pkg/telegram"
 )
@@ -54,7 +55,6 @@ func (h *handler) Catalog(ctx context.Context, chatID int64, prevMsgID *int) err
 		editMsg := tg.NewEditMessageText(chatID, *prevMsgID, "Выберите тип каталога")
 		editMsg.ReplyMarkup = &buttons.CatalogType
 		c = editMsg
-
 	} else {
 		msg := tg.NewMessage(chatID, "Выберите тип каталога")
 		msg.ReplyMarkup = buttons.CatalogType
@@ -63,7 +63,8 @@ func (h *handler) Catalog(ctx context.Context, chatID int64, prevMsgID *int) err
 
 	return h.sendWithMessageID(c, func(msgID int) error {
 		catalogMsg := telegram.CatalogMsg{
-			MsgID: msgID,
+			MsgID:  msgID,
+			ChatID: chatID,
 		}
 		err := h.catalogMsgService.Save(ctx, catalogMsg)
 		if err != nil {
@@ -73,6 +74,48 @@ func (h *handler) Catalog(ctx context.Context, chatID int64, prevMsgID *int) err
 				CausedBy:    "Save",
 			})
 		}
+
 		return nil
 	})
+}
+
+func (h *handler) MyOrders(ctx context.Context, chatID int64) error {
+	var telegramID = chatID
+
+	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	if err != nil {
+		return err
+	}
+
+	orders, err := h.orderService.GetAllForCustomer(ctx, customer.CustomerID, domain.SourceHousehold)
+	if err != nil {
+		if errors.Is(err, domain.ErrNoOrders) {
+			return h.sendMessage(chatID, "У тебя еще нет заказов 🦕")
+		}
+
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "MyOrders",
+			CausedBy:    "GetAllForCustomer",
+		})
+	}
+	if orders == nil {
+		if err := h.sendMessage(chatID, "У тебя еще нет заказов 🦕"); err != nil {
+			return tg_errors.New(tg_errors.Config{
+				OriginalErr: err,
+				Handler:     "MyOrders",
+				CausedBy:    "sendMessage",
+			})
+		}
+		return nil
+	}
+
+	var name string
+	if customer.FullName != nil {
+		name = *customer.FullName
+	} else {
+		name = *customer.Username
+	}
+
+	return h.sendMessage(chatID, templates.RenderMyOrders(name, orders))
 }

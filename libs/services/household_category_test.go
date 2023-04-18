@@ -1,8 +1,9 @@
 package services
 
 import (
-	"domain"
 	"testing"
+
+	"domain"
 
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -11,60 +12,52 @@ import (
 func TestDoAllExist(t *testing.T) {
 
 	t.Run("one element missing, expect false", func(t *testing.T) {
-		var ids []primitive.ObjectID
+		var cartProducts []domain.HouseholdProduct
 		for i := 0; i < 5; i++ {
-			ids = append(ids, primitive.NewObjectID())
-		}
-		var products []domain.HouseholdProduct
-		for i := 0; i < 5; i++ {
-			// Skip 3rd
-			if i == 3 {
-				continue
-			}
 			p := domain.HouseholdProduct{
-				ProductID: ids[i],
+				ProductID: primitive.NewObjectID(),
+				Price:     uint32(i),
 			}
-			products = append(products, p)
+			cartProducts = append(cartProducts, p)
 		}
-		ok := doAllExist(ids, products)
+		// missing cartProduct[0]
+		products := cartProducts[1:]
+		ok, missingProduct := doAllExist(cartProducts, products)
+
 		require.False(t, ok)
+		require.EqualValues(t, cartProducts[0], missingProduct)
 	})
 
-	t.Run("first element missing, expect false", func(t *testing.T) {
-		var ids []primitive.ObjectID
+	t.Run("2 elements are missing, expect false", func(t *testing.T) {
+		var cartProducts []domain.HouseholdProduct
 		for i := 0; i < 5; i++ {
-			ids = append(ids, primitive.NewObjectID())
-		}
-		var products []domain.HouseholdProduct
-		for i := 0; i < 5; i++ {
-			// Skip 3rd
-			if i == 0 {
-				continue
-			}
 			p := domain.HouseholdProduct{
-				ProductID: ids[i],
+				ProductID: primitive.NewObjectID(),
+				Price:     uint32(i),
 			}
-			products = append(products, p)
+			cartProducts = append(cartProducts, p)
 		}
 
-		ok := doAllExist(ids, products)
+		// missing cartProduct[3], cartProduct[4]
+		products := append(cartProducts[:3])
+		ok, missingProduct := doAllExist(cartProducts, products)
 		require.False(t, ok)
+		require.EqualValues(t, cartProducts[3], missingProduct)
 	})
 
 	t.Run("all products and id's on place, expect true", func(t *testing.T) {
-		var ids []primitive.ObjectID
-		for i := 0; i < 5; i++ {
-			ids = append(ids, primitive.NewObjectID())
-		}
-		var products []domain.HouseholdProduct
+		var cartProducts []domain.HouseholdProduct
 		for i := 0; i < 5; i++ {
 			p := domain.HouseholdProduct{
-				ProductID: ids[i],
+				ProductID: primitive.NewObjectID(),
+				Price:     uint32(i),
 			}
-			products = append(products, p)
+			cartProducts = append(cartProducts, p)
 		}
 
-		ok := doAllExist(ids, products)
+		products := cartProducts
+		ok, missingProduct := doAllExist(cartProducts, products)
 		require.True(t, ok)
+		require.Zero(t, missingProduct)
 	})
 }

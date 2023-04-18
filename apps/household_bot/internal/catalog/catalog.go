@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"domain"
+	fn "github.com/sonyamoonglade/go_func"
 	"repositories"
 )
 
@@ -40,6 +41,23 @@ func (p *Provider) GetCategory(title string, inStock bool) (domain.HouseholdCate
 	return domain.HouseholdCategory{}, false
 }
 
+func (p *Provider) GetActiveCategoryTitlesByInStock(inStock bool) []string {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	active := fn.
+		Of(p.items).
+		Filter(func(category domain.HouseholdCategory) bool {
+			return category.InStock == inStock && category.Active
+		}).
+		Result
+
+	return fn.Map(active,
+		func(category domain.HouseholdCategory, i int) string {
+			return category.Title
+		})
+}
+
 func (p *Provider) GetCategoryTitles(active bool, inStock bool) []string {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -67,14 +85,14 @@ func (p *Provider) GetSubcategory(cTitle, sTitle string, inStock bool) (domain.S
 	return domain.Subcategory{}, false
 }
 
-func (p *Provider) GetSubcategoryTitles(cTitle string, active bool, inStock bool) []string {
+func (p *Provider) GetSubcategoryTitles(cTitle string, inStock bool) []string {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	var titles []string
 	for _, c := range p.items {
-		if c.Title == cTitle && c.InStock == inStock {
+		if c.Title == cTitle && c.InStock == inStock && c.Active {
 			for _, subC := range c.Subcategories {
-				if subC.Active == active {
+				if subC.Active {
 					titles = append(titles, subC.Title)
 				}
 			}
@@ -96,6 +114,28 @@ func (p *Provider) GetProducts(cTitle, sTitle string, inStock bool) []domain.Hou
 		}
 	}
 	return nil
+}
+func (p *Provider) GetProduct(cTitle, sTitle, pName string, inStock bool) domain.HouseholdProduct {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	category := fn.
+		Of(p.items).
+		Find(func(category domain.HouseholdCategory, _ int) bool {
+			return category.InStock == inStock &&
+				category.Active &&
+				category.Title == cTitle
+		})
+	subcategory := fn.
+		Of(category.Subcategories).
+		Find(func(subcategory domain.Subcategory, _ int) bool {
+			return subcategory.Active &&
+				subcategory.Title == sTitle
+		})
+	return fn.
+		Of(subcategory.Products).
+		Find(func(product domain.HouseholdProduct, _ int) bool {
+			return product.Name == pName
+		})
 }
 
 func (p *Provider) MakeOnChangeHook() repositories.HouseholdOnChangeFunc {

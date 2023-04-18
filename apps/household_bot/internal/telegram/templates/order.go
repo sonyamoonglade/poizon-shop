@@ -26,16 +26,23 @@ const (
 	requisitesTemplate = "Счет для оплаты заказа: [%s]\n\nТимофеев Вадим Денисович 💁‍ ♂️ @xKK_Russia\n\nНомер карты " +
 		"Сбер: %s\nНомер карты Тинькофф: %s\nВ комментарии укажи номер заказа [%s]\n\nПосле оплаты нажми кнопку «Оплачено»\n"
 
-	orderStartTemplate = "Вся информация, которую ты указываешь, для сборки в корзине 🧺 должна быть актуальной, " +
+	cartWarn = "Вся информация, которую ты указываешь, для сборки в корзине 🧺 должна быть актуальной, " +
 		"если она составляет более 48ч ⌚️и является неактуальной  – заказ не будет принят и деньги возвратятся в полном " +
-		"объеме на карту плательщика 💴\n\n%s - Твоя заявка готова!\n\nНомер заказа: [%s]\n\nДанные " +
-		"получателя\nФИО: %s\nНомер телефона: %s\nАдрес доставки: %s\n\nТоваров в корзине: %d\n\n"
+		"объеме на карту плательщика 💴\n\n%s - Твоя заявка готова!\n\n"
 
-	orderEndTemplate = "Итоговая стоимость составляет %d ₽\n\nВысылаю реквизиты для оплаты 🧾"
+	orderStartTemplate = "Номер заказа: [%s]\n\nДанные " +
+		"получателя:\nФИО: %s\nНомер телефона: %s\nАдрес доставки: %s\n\nТоваров в корзине: %d\n\n"
+
+	orderEndTemplate = "Итоговая стоимость составляет %d ₽\n"
+
+	sendingRequsitiesTemplate = "\nВысылаю реквизиты для оплаты 🧾"
 
 	successfulPaymentTemplate = "%s, твой заказ %s сейчас на подтверждении у админа. Он напишет тебе в личные сообщения " +
 		"и подтвердит статус покупки.\n\n‼️Никому кроме бота деньги отправлять не нужно‼️Даже админу‼️\n\nТолько " +
 		"админ проверяет поступление денег и обозначает статус покупки ✅"
+
+	myOrdersStart     = "Вот твои заказы, %s!\n\n"
+	myOrdersSeparator = "\n-----\n\n"
 )
 
 func AskForFIO() string {
@@ -63,7 +70,7 @@ func AskForOrderType() string {
 }
 
 func RenderOrder(order domain.HouseholdOrder) string {
-	start := _orderStart(order)
+	start := cartWarn + _orderStart(order)
 	for _, pos := range order.Cart {
 		start += _cartPositionTemplate(cartPositionArgs{
 			n:           len(order.Cart),
@@ -71,7 +78,23 @@ func RenderOrder(order domain.HouseholdOrder) string {
 			productName: pos.Name,
 		})
 	}
-	return start + _orderEnd(order.AmountRUB)
+	return start + _orderEnd(order.AmountRUB) + sendingRequsitiesTemplate
+}
+
+func RenderMyOrders(name string, orders []domain.HouseholdOrder) string {
+	start := fmt.Sprintf(myOrdersStart, name)
+	for _, o := range orders {
+		start += _orderStart(o)
+		for _, item := range o.Cart {
+			start += _cartPositionTemplate(cartPositionArgs{
+				n:           len(o.Cart),
+				priceRub:    item.Price,
+				productName: item.Name,
+			})
+		}
+		start += _orderEnd(o.AmountRUB) + myOrdersSeparator
+	}
+	return start
 }
 
 func SuccessfulPayment(fullName, orderShortID string) string {
@@ -81,7 +104,6 @@ func SuccessfulPayment(fullName, orderShortID string) string {
 func _orderStart(order domain.HouseholdOrder) string {
 	return fmt.Sprintf(
 		orderStartTemplate,
-		*order.Customer.FullName,
 		order.ShortID,
 		*order.Customer.FullName,
 		*order.Customer.PhoneNumber,

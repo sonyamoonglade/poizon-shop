@@ -7,16 +7,74 @@ import (
 
 	"domain"
 	"dto"
+	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"household_bot/internal/telegram/buttons"
 	"household_bot/internal/telegram/callback"
 	"household_bot/internal/telegram/templates"
 	"household_bot/internal/telegram/tg_errors"
-
-	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func (h *handler) AskForFIO(ctx context.Context, chatID int64) error {
-	var telegramID = chatID
+	telegramID := chatID
+	// Beforehand check the cart for validity
+	if err := h.sendMessage(chatID, "Проверяем вашу корзину... Пожалуйста, подождите"); err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AskForFIO",
+			CausedBy:    "sendMessage",
+		})
+	}
+
+	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AskForFIO",
+			CausedBy:    "GetByTelegramID",
+		})
+	}
+
+	// Perform a *long* check that checks whether all products in cart exist
+	first, _ := customer.Cart.First()
+	someCategoryID := first.CategoryID
+
+	category, err := h.categoryService.GetByID(ctx, someCategoryID)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AskForFIO",
+			CausedBy:    "GetByID",
+		})
+	}
+
+	ok, missingProduct, err := h.categoryService.CheckIfAllProductsExist(ctx, customer.Cart, category.InStock)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AskForFIO",
+			CausedBy:    "CheckIfAllProductsExist",
+		})
+	}
+
+	if !ok {
+		if err := h.sendMessage(chatID, fmt.Sprintf("Продукт: %s с артикулом: %s, Oтсутствует!\n", missingProduct.Name, missingProduct.ISBN)); err != nil {
+			return tg_errors.New(tg_errors.Config{
+				OriginalErr: err,
+				Handler:     "AskForFIO",
+				CausedBy:    "sendMessage",
+			})
+		}
+		return nil
+	}
+
+	if err := h.sendMessage(chatID, "Все хорошо, можете создавать заказ"); err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AskForFIO",
+			CausedBy:    "sendMessage",
+		})
+	}
+
 	if err := h.customerRepo.UpdateState(ctx, telegramID, domain.StateWaitingForFIO); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -59,6 +117,7 @@ func (h *handler) HandleFIOInput(ctx context.Context, m *tg.Message) error {
 				CausedBy:    "sendMessage",
 			})
 		}
+		return nil
 	}
 
 	updateDTO := dto.UpdateHouseholdCustomerDTO{
@@ -107,6 +166,7 @@ func (h *handler) HandlePhoneNumberInput(ctx context.Context, m *tg.Message) err
 				CausedBy:    "sendMessage",
 			})
 		}
+		return nil
 	}
 
 	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)

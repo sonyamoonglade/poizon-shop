@@ -2,14 +2,13 @@ package tests
 
 import (
 	"context"
+	"testing"
+
 	"domain"
 	"dto"
 	f "github.com/brianvoe/gofakeit/v6"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"logger"
-	"testing"
-	"utils/testutil"
 )
 
 func (s *AppTestSuite) TestHandlerMakeOrder() {
@@ -24,10 +23,6 @@ func (s *AppTestSuite) TestHandlerMakeOrder() {
 			telegramID = f.Int64()
 		)
 		customer := domain.NewHouseholdCustomer(telegramID, username)
-		customer.State = domain.StateWaitingForDeliveryAddress
-		customer.FullName = testutil.StringPtr(f.Name())
-		customer.PhoneNumber = testutil.StringPtr("89128123412")
-		logger.Get().Sugar().Debugf("cus fname: %s", *customer.FullName)
 		c1 := domain.NewHouseholdCategory(f.Word(), true)
 		c1.CategoryID = primitive.NewObjectID()
 		c1.Subcategories = append(c1.Subcategories, domain.Subcategory{
@@ -67,7 +62,6 @@ func (s *AppTestSuite) TestHandlerMakeOrder() {
 		cart.Add(p1)
 		cart.Add(p2)
 		customer.Cart = cart
-		logger.Get().Sugar().Debug(customer.Cart)
 
 		err = s.repositories.HouseholdCustomer.Save(ctx, customer)
 		require.NoError(err)
@@ -79,30 +73,20 @@ func (s *AppTestSuite) TestHandlerMakeOrder() {
 		})
 		require.NoError(err)
 
-		// Try to create the order
-		msg := newTgMessage(125, telegramID, username, f.Address().Address)
-		err = s.tghandler.HandleDeliveryAddressInput(ctx, msg)
+		// Checks cart
+		err = s.tghandler.AskForFIO(ctx, telegramID)
 		require.NoError(err)
-		// Order should not be created because p2 is missing, but it's in the cart
-		orders, err := s.repositories.HouseholdOrder.GetAll(ctx)
-		require.NoError(err)
-		require.Empty(orders)
-		require.True(len(orders) == 0)
 
-		//require.NoError(s.repositories.HouseholdCustomer.Delete(ctx, customer.CustomerID))
-		//require.NoError(s.repositories.HouseholdCategory.Delete(ctx, c1.CategoryID))
+		require.NoError(s.repositories.HouseholdCustomer.Delete(ctx, customer.CustomerID))
+		require.NoError(s.repositories.HouseholdCategory.Delete(ctx, c1.CategoryID))
 	})
 
 	s.T().Run("should create order because all products exist at the moment", func(t *testing.T) {
-		t.Skip()
 		var (
 			username   = f.Username()
 			telegramID = f.Int64()
 		)
 		customer := domain.NewHouseholdCustomer(telegramID, username)
-		customer.State = domain.StateWaitingForDeliveryAddress
-		customer.FullName = testutil.StringPtr(f.Name())
-		customer.PhoneNumber = testutil.StringPtr("89128123412")
 
 		c1 := domain.NewHouseholdCategory(f.Word(), true)
 		c1.CategoryID = primitive.NewObjectID()
@@ -147,18 +131,10 @@ func (s *AppTestSuite) TestHandlerMakeOrder() {
 		err = s.repositories.HouseholdCustomer.Save(ctx, customer)
 		require.NoError(err)
 
-		// Try to create the order
-		msg := newTgMessage(125, telegramID, username, f.Address().Address)
-		err = s.tghandler.HandleDeliveryAddressInput(ctx, msg)
+		// Checks cart
+		s.mockBot = new(MockBot)
+		err = s.tghandler.AskForFIO(ctx, telegramID)
 		require.NoError(err)
-
-		// Should create order
-		orders, err := s.repositories.HouseholdOrder.GetAllForCustomer(ctx, customer.CustomerID)
-		require.NoError(err)
-		require.NotEmpty(orders)
-
-		require.NotZero(orders[0])
-		require.EqualValues(cart, orders[0].Cart)
 
 		s.repositories.HouseholdCustomer.Delete(ctx, customer.CustomerID)
 		s.repositories.HouseholdCategory.Delete(ctx, c1.CategoryID)

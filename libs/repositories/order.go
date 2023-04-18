@@ -3,7 +3,6 @@ package repositories
 import (
 	"context"
 	"errors"
-	"logger"
 
 	"domain"
 	"dto"
@@ -111,8 +110,8 @@ func (o *orderRepo[T]) GetByShortID(ctx context.Context, shortID string) (T, err
 	return ord, nil
 }
 
-func (o *orderRepo[T]) GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID) ([]T, error) {
-	filter := bson.M{"customer._id": customerID}
+func (o *orderRepo[T]) GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID, source domain.Source) ([]T, error) {
+	filter := bson.M{"customer._id": customerID, "source": source}
 	res, err := o.orders.Find(ctx, filter)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -124,7 +123,6 @@ func (o *orderRepo[T]) GetAllForCustomer(ctx context.Context, customerID primiti
 	if err := res.All(ctx, &orders); err != nil {
 		return nil, err
 	}
-	logger.Get().Sugar().Debugf("cust: %s\ngot orders: %v\n", customerID.String(), orders)
 	return orders, nil
 }
 

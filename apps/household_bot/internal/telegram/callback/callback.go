@@ -14,6 +14,7 @@ const (
 	MyOrders
 	MyCart
 	Faq
+	GetFaqAnswer
 	CTypeOrder
 	CTypeInStock
 	SelectCategory

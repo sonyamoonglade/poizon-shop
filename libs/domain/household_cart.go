@@ -35,3 +35,7 @@ func (c *HouseholdCart) RemoveAt(index int) {
 func (c *HouseholdCart) swap(i, j int) {
 	(*c)[i], (*c)[j] = (*c)[j], (*c)[i]
 }
+
+func (c *HouseholdCart) Slice() []HouseholdProduct {
+	return *c
+}

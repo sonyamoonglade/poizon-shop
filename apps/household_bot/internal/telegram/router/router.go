@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"domain"
-
 	"household_bot/internal/telegram/callback"
 	"household_bot/internal/telegram/tg_errors"
 	"logger"
@@ -26,6 +25,7 @@ type RouteHandler interface {
 	Start(ctx context.Context, message *tg.Message) error
 	Menu(ctx context.Context, chatID int64) error
 	Catalog(ctx context.Context, chatID int64, prevMsgID *int) error
+	MyOrders(ctx context.Context, chatID int64) error
 
 	GetCart(ctx context.Context, chatID int64) error
 	EditCart(ctx context.Context, chatID int64, cartMsgID int) error
@@ -43,6 +43,9 @@ type RouteHandler interface {
 	HandlePhoneNumberInput(ctx context.Context, m *tg.Message) error
 	HandleDeliveryAddressInput(ctx context.Context, m *tg.Message) error
 	HandlePayment(ctx context.Context, c *tg.CallbackQuery, args []string) error
+
+	FAQ(ctx context.Context, chatID int64) error
+	GetFAQAnswer(ctx context.Context, chatID int64, args []string) error
 
 	AnswerCallback(c *tg.CallbackQuery) error
 	Sorry(chatID int64) error
@@ -193,6 +196,12 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 		return r.handler.Catalog(ctx, chatID, &msgID)
 	case callback.MyCart:
 		return r.handler.GetCart(ctx, chatID)
+	case callback.MyOrders:
+		return r.handler.MyOrders(ctx, chatID)
+	case callback.Faq:
+		return r.handler.FAQ(ctx, chatID)
+	case callback.GetFaqAnswer:
+		return r.handler.GetFAQAnswer(ctx, chatID, parsedArgs)
 	case callback.CTypeInStock:
 		return r.handler.Categories(ctx, chatID, msgID, true)
 	case callback.CTypeOrder:
@@ -211,6 +220,7 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 		return r.handler.EditCart(ctx, chatID, msgID)
 	case callback.DeletePositionFromCart:
 		return r.handler.DeletePositionFromCart(ctx, chatID, msgID, parsedArgs)
+
 	case callback.MakeOrder:
 		// Initial step to make order
 		return r.handler.AskForFIO(ctx, chatID)

@@ -31,7 +31,7 @@ type HouseholdCustomer interface {
 
 type Order[T domain.ClothingOrder | domain.HouseholdOrder] interface {
 	GetByShortID(ctx context.Context, shortID string) (T, error)
-	GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID) ([]T, error)
+	GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID, source domain.Source) ([]T, error)
 	GetAll(ctx context.Context) ([]T, error)
 	Save(ctx context.Context, o T) error
 	Approve(ctx context.Context, orderID primitive.ObjectID) (T, error)
@@ -62,8 +62,8 @@ type HouseholdCategory interface {
 }
 
 type HouseholdCatalogMsg interface {
-	Save(ctx context.Context, m telegram.CatalogMsg) error
 	GetAll(ctx context.Context) ([]telegram.CatalogMsg, error)
+	Save(ctx context.Context, m telegram.CatalogMsg) error
 	Delete(ctx context.Context, id primitive.ObjectID) error
 	DeleteByMsgID(ctx context.Context, msgID int) error
 }
