@@ -67,39 +67,15 @@ func run() error {
 	}
 
 	catalogProvider := catalog.NewProvider()
-
-	client := redis.NewClient(cfg.Redis.Addr)
-	bus := redis.NewBus[[]domain.HouseholdCategory](client)
-
-	redCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	onCatalogUpdate := func(items []domain.HouseholdCategory) error {
-		catalogProvider.Load(items)
-		return nil
+	initialCatalog, err := repos.HouseholdCategory.GetAll(ctx)
+	if err != nil {
+		return fmt.Errorf("get initial catalog: %w", err)
 	}
-	redisErrorHandler := func(topic string, err error) {
-		logger.Get().Error("redis error", zap.Error(err))
-	}
-	go bus.SubscribeToTopicWithCallback(
-		redCtx,
-		redis.HouseholdCatalogTopic,
-		onCatalogUpdate,
-		redisErrorHandler,
-	)
+	catalogProvider.Load(initialCatalog)
 
 	orderService := services.NewHouseholdOrderService(repos.HouseholdOrder)
 	catalogMsgService := services.NewHouseholdCatalogMsgService(repos.HouseholdCatalogMsg, mongo)
 	tgHandler := handler.NewHandler(tgBot, repos.Rate, repos, catalogProvider, orderService, catalogMsgService)
-
-	go bus.SubscribeToTopicWithCallback(
-		redCtx,
-		redis.HouseholdWipeCatalogTopic,
-		func(_ []domain.HouseholdCategory) error {
-			return tgHandler.WipeCatalogs(redCtx)
-		},
-		redisErrorHandler,
-	)
 
 	tgRouter := router.NewRouter(
 		tgBot.GetUpdates(),
@@ -107,6 +83,38 @@ func run() error {
 		repos.HouseholdCustomer,
 		cfg.Bot.HandlerTimeout,
 	)
+
+	if production {
+
+		client := redis.NewClient(cfg.Redis.Addr)
+		bus := redis.NewBus[[]domain.HouseholdCategory](client)
+
+		redCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		onCatalogUpdate := func(items []domain.HouseholdCategory) error {
+			catalogProvider.Load(items)
+			return nil
+		}
+		redisErrorHandler := func(topic string, err error) {
+			logger.Get().Error("redis error", zap.Error(err))
+		}
+		go bus.SubscribeToTopicWithCallback(
+			redCtx,
+			redis.HouseholdCatalogTopic,
+			onCatalogUpdate,
+			redisErrorHandler,
+		)
+
+		go bus.SubscribeToTopicWithCallback(
+			redCtx,
+			redis.HouseholdWipeCatalogTopic,
+			func(_ []domain.HouseholdCategory) error {
+				return tgHandler.WipeCatalogs(redCtx)
+			},
+			redisErrorHandler,
+		)
+	}
 
 	if err := tgRouter.Bootstrap(); err != nil {
 		return err

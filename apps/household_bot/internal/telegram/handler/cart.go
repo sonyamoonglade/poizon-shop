@@ -3,8 +3,9 @@ package handler
 import (
 	"context"
 	"fmt"
-	fn "github.com/elliotchance/pie/v2"
 	"strconv"
+
+	fn "github.com/elliotchance/pie/v2"
 
 	"domain"
 	"dto"
@@ -57,12 +58,12 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string) er
 			CausedBy:    "GetProductsByCategoryAndSubcategory",
 		})
 	}
-
-	currentProduct := products[fn.
+	idx := fn.
 		Of(products).
 		FindFirstUsing(func(p domain.HouseholdProduct) bool {
 			return p.Name == pName
-		})]
+		})
+	currentProduct := products[idx]
 
 	// Category that customer is adding product with
 	currentCategory, err := h.categoryRepo.GetByID(ctx, currentProduct.CategoryID)
@@ -70,7 +71,7 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string) er
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "AddToCart",
-			CausedBy:    "GetByTitle",
+			CausedBy:    "GetByID",
 		})
 	}
 

@@ -29,15 +29,14 @@ require (
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/text v0.3.7 // indirect
 	logger v0.0.0
-	redis v0.0.0
 )
 
 replace (
-	redis v0.0.0 => ../redis
 	domain v0.0.0 => ../domain
 	dto v0.0.0 => ../dto
 	functools v0.0.0 => ../functools
 	logger v0.0.0 => ../logger
 	nanoid v0.0.0 => ../nanoid
+	redis v0.0.0 => ../redis
 	utils => ../utils
 )

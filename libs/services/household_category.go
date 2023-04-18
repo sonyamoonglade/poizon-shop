@@ -7,9 +7,10 @@ import (
 
 	"domain"
 	"dto"
-	fn "github.com/elliotchance/pie/v2"
 	"onlineshop/database"
 	"repositories"
+
+	fn "github.com/elliotchance/pie/v2"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -113,29 +114,37 @@ func (h *householdCategoryService) CheckIfAllProductsExist(
 	if err != nil {
 		return false, fmt.Errorf("get all by in stock: :%w", err)
 	}
-
+	// Combine all products into one big array
 	allProductsUnflat := fn.Map(
 		categories,
 		func(c domain.HouseholdCategory) []domain.HouseholdProduct {
-			reduceFunc := func(acc []domain.HouseholdProduct, el domain.Subcategory) []domain.HouseholdProduct {
+			reduceFunc := func(
+				acc []domain.HouseholdProduct,
+				el domain.Subcategory,
+			) []domain.HouseholdProduct {
 				return append(acc, el.Products...)
 			}
 			return functools.Reduce(reduceFunc, c.Subcategories, nil)
 		})
 
-	allProducts := fn.Flat(allProductsUnflat)
+	return doAllExist(productIDs, fn.Flat(allProductsUnflat)), nil
+}
 
-	allExist := fn.
-		Of(allProducts).
-		All(func(categoryProduct domain.HouseholdProduct) bool {
-			idx := fn.
-				Of(productIDs).
-				FindFirstUsing(func(cartProductID primitive.ObjectID) bool {
-					return categoryProduct.ProductID == cartProductID
-				})
-			// Means it's found
-			return idx != -1
-		})
-
-	return allExist, nil
+func doAllExist(
+	idsInCart []primitive.ObjectID,
+	allProducts []domain.HouseholdProduct,
+) bool {
+	reduceFunc := func(acc int, el domain.HouseholdProduct) int {
+		idx := fn.
+			Of(idsInCart).
+			FindFirstUsing(func(id primitive.ObjectID) bool {
+				return id == el.ProductID
+			})
+		if idx == -1 {
+			return 0
+		}
+		return acc + 1
+	}
+	c := functools.Reduce(reduceFunc, allProducts, 0)
+	return c == len(idsInCart)
 }

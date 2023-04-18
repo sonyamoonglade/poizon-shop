@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"domain"
@@ -12,11 +13,12 @@ import (
 	"household_bot/internal/telegram/tg_errors"
 	"household_bot/pkg/telegram"
 
+	fn "github.com/elliotchance/pie/v2"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, onlyAvailableInStock bool) error {
-	categories, err := h.categoryRepo.GetAllByInStock(ctx, onlyAvailableInStock)
+func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, inStock bool) error {
+	categories, err := h.categoryRepo.GetAllByInStock(ctx, inStock)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -27,17 +29,22 @@ func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, o
 	if categories == nil {
 		return h.sendMessage(chatID, "no categories")
 	}
-	var categoryTitles []string
-	for _, c := range categories {
-		if c.Active {
-			categoryTitles = append(categoryTitles, c.Title)
-		}
-	}
+
+	onlyActive := fn.
+		Of(categories).
+		Filter(func(c domain.HouseholdCategory) bool {
+			return c.Active
+		}).
+		Result
+	categoryTitles := fn.Map(onlyActive, func(c domain.HouseholdCategory) string {
+		return c.Title
+	})
 
 	// To prev step, reInject inStock
-	backButton := buttons.NewBackButton(callback.Catalog, nil, nil, &onlyAvailableInStock)
-	editMsg := tg.NewEditMessageText(chatID, prevMsgID, "доступные категории")
-	keyboard := buttons.NewCategoryButtons(categoryTitles, callback.SelectCategory, onlyAvailableInStock, backButton)
+	backButton := buttons.NewBackButton(callback.Catalog, nil, nil, &inStock)
+	text := fmt.Sprintf("Type: %s\nCategories", domain.InStockToString(inStock))
+	editMsg := tg.NewEditMessageText(chatID, prevMsgID, text)
+	keyboard := buttons.NewCategoryButtons(categoryTitles, callback.SelectCategory, inStock, backButton)
 	editMsg.ReplyMarkup = &keyboard
 	return h.cleanSend(editMsg)
 }
@@ -81,7 +88,9 @@ func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int
 		inStock,
 		backButton,
 	)
-	editMsg := tg.NewEditMessageText(chatID, prevMsgID, "Подкатегории")
+	// todo:into template
+	text := fmt.Sprintf("Type: %s\nCategory: %s\nSubcategories:", domain.InStockToString(inStock), cTitle)
+	editMsg := tg.NewEditMessageText(chatID, prevMsgID, text)
 	editMsg.ReplyMarkup = &keyboard
 	return h.cleanSend(editMsg)
 }
@@ -327,13 +336,14 @@ func (h *handler) fetchProductsAndGetChattable(ctx context.Context,
 		Back: backButton,
 	})
 	var c tg.Chattable
+	text := fmt.Sprintf("Type: %s\nCategory: %s\nSubcategory: %s\nProducts:", domain.InStockToString(inStock), cTitle, sTitle)
 	if edit && editMsgID != nil {
-		m := tg.NewEditMessageText(chatID, *editMsgID, "Доступные товары")
+		m := tg.NewEditMessageText(chatID, *editMsgID, text)
 		m.ReplyMarkup = &keyboard
 		c = m
 
 	} else {
-		m := tg.NewMessage(chatID, "Доступные товары")
+		m := tg.NewMessage(chatID, text)
 		m.ReplyMarkup = keyboard
 		c = m
 	}
