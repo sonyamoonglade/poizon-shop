@@ -13,12 +13,10 @@ require (
 	onlineshop/database v0.0.0
 )
 
-require github.com/sonyamoonglade/go_func v0.0.0-20230418180836-d7b9b025b11a // indirect
+require github.com/sonyamoonglade/go_func v0.0.0-20230418180836-d7b9b025b11a
 
 require (
-	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -29,7 +27,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.6 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/redis/go-redis/v9 v9.0.3 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
@@ -47,7 +44,6 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	nanoid v0.0.0 // indirect
-	utils v0.0.0
 )
 
 require (
@@ -59,7 +55,6 @@ require (
 	go.uber.org/multierr v1.11.0
 	golang.org/x/text v0.9.0 // indirect
 	logger v0.0.0
-	redis v0.0.0
 	repositories v0.0.0
 	services v0.0.0
 )

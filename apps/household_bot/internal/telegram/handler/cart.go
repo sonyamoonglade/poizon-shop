@@ -19,14 +19,6 @@ import (
 func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string) error {
 	var telegramID = chatID
 
-	if err := h.checkRequiredState(ctx, telegramID, domain.StateWaitingToAddToCart); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "AddToCart",
-			CausedBy:    "checkRequiredState",
-		})
-	}
-
 	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{

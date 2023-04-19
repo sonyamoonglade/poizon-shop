@@ -26,6 +26,8 @@ type RouteHandler interface {
 	Menu(ctx context.Context, chatID int64) error
 	Catalog(ctx context.Context, chatID int64, prevMsgID *int) error
 	MyOrders(ctx context.Context, chatID int64) error
+	AskForISBN(ctx context.Context, chatID int64) error
+	HandleProductByISBN(ctx context.Context, m *tg.Message) error
 
 	GetCart(ctx context.Context, chatID int64) error
 	EditCart(ctx context.Context, chatID int64, cartMsgID int) error
@@ -161,6 +163,8 @@ func (r *Router) mapToCommandHandler(ctx context.Context, m *tg.Message) error {
 			return r.handler.HandlePhoneNumberInput(ctx, m)
 		case domain.StateWaitingForDeliveryAddress:
 			return r.handler.HandleDeliveryAddressInput(ctx, m)
+		case domain.StateWaitingForISBN:
+			return r.handler.HandleProductByISBN(ctx, m)
 		default:
 			return ErrNoHandler
 		}
@@ -198,6 +202,8 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 		return r.handler.GetCart(ctx, chatID)
 	case callback.MyOrders:
 		return r.handler.MyOrders(ctx, chatID)
+	case callback.GetProductByISBN:
+		return r.handler.GetProductCardByISBN(ctx, chatID, parsedArgs)
 	case callback.Faq:
 		return r.handler.FAQ(ctx, chatID)
 	case callback.GetFaqAnswer:
@@ -220,7 +226,6 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 		return r.handler.EditCart(ctx, chatID, msgID)
 	case callback.DeletePositionFromCart:
 		return r.handler.DeletePositionFromCart(ctx, chatID, msgID, parsedArgs)
-
 	case callback.MakeOrder:
 		// Initial step to make order
 		return r.handler.AskForFIO(ctx, chatID)

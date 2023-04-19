@@ -1,9 +1,10 @@
 package buttons
 
 import (
-	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"household_bot/internal/telegram/callback"
 	"household_bot/internal/telegram/router"
+
+	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 var (
@@ -18,6 +19,9 @@ func menu() tg.InlineKeyboardMarkup {
 	return tg.NewInlineKeyboardMarkup(
 		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Каталог", callback.Inject(callback.Catalog)),
+		),
+		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Search by ISBN", callback.Inject(callback.GetProductByISBN)),
 		),
 		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Вопросы", callback.Inject(callback.Faq)),

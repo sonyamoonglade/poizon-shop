@@ -3,13 +3,16 @@ package handler
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 
 	"domain"
-	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"household_bot/internal/telegram/buttons"
 	"household_bot/internal/telegram/templates"
 	"household_bot/internal/telegram/tg_errors"
 	"household_bot/pkg/telegram"
+
+	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func (h *handler) Start(ctx context.Context, m *tg.Message) error {
@@ -100,14 +103,7 @@ func (h *handler) MyOrders(ctx context.Context, chatID int64) error {
 		})
 	}
 	if orders == nil {
-		if err := h.sendMessage(chatID, "У тебя еще нет заказов 🦕"); err != nil {
-			return tg_errors.New(tg_errors.Config{
-				OriginalErr: err,
-				Handler:     "MyOrders",
-				CausedBy:    "sendMessage",
-			})
-		}
-		return nil
+		return h.sendMessage(chatID, "У тебя еще нет заказов 🦕")
 	}
 
 	var name string
@@ -118,4 +114,31 @@ func (h *handler) MyOrders(ctx context.Context, chatID int64) error {
 	}
 
 	return h.sendMessage(chatID, templates.RenderMyOrders(name, orders))
+}
+
+func (h *handler) AskForISBN(ctx context.Context, chatID int64) error {
+	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateWaitingForISBN); err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AskForISBN",
+			CausedBy:    "UpdateState",
+		})
+	}
+	return h.sendMessage(chatID, "Enter ISBN, please: ")
+}
+
+func (h *handler) HandleProductByISBN(ctx context.Context, m *tg.Message) error {
+	var (
+		chatID     = m.Chat.ID
+		telegramID = chatID
+		isbn       = strings.TrimSpace(m.Text)
+	)
+
+	product, ok := h.catalogProvider.GetProductByISBN(isbn)
+	if !ok {
+		return h.sendMessage(chatID, fmt.Sprintf("product with isbn %s does not exist :("))
+	}
+	// todo:buttons
+	h.renderProductCard(ctx, chatID, product, keyboard)
+
 }

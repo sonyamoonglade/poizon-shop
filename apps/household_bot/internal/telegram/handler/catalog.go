@@ -140,11 +140,7 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 	}
 
 	p := h.catalogProvider.GetProduct(cTitle, sTitle, productName, inStock)
-
-	photo := tg.NewPhoto(chatID, tg.FileURL(p.ImageURL))
-	photo.Caption = templates.HouseholdProductCaption(p)
-	photo.ParseMode = "markdown"
-	photo.ReplyMarkup = buttons.NewProductCardButtons(buttons.ProductCardButtonsArgs{
+	keyboard := buttons.NewProductCardButtons(buttons.ProductCardButtonsArgs{
 		Cb:      callback.AddToCart,
 		CTitle:  cTitle,
 		STitle:  sTitle,
@@ -157,36 +153,17 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 		),
 	})
 
-	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateWaitingToAddToCart); err != nil {
+	if err := h.renderProductCard(ctx, chatID, p, keyboard); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "ProductCard",
-			CausedBy:    "UpdateState",
+			CausedBy:    "renderProductCard",
 		})
 	}
-
-	return h.sendWithMessageID(photo, func(msgID int) error {
-		catalogMsg := telegram.CatalogMsg{
-			MsgID:  msgID,
-			ChatID: chatID,
-		}
-		err := h.catalogMsgService.Save(ctx, catalogMsg)
-		if err != nil {
-			return tg_errors.New(tg_errors.Config{
-				OriginalErr: err,
-				Handler:     "ProductCard",
-				CausedBy:    "Save",
-			})
-		}
-		return nil
-	})
+	return nil
 }
 
-func (h *handler) ProductsNew(ctx context.Context,
-	chatID int64,
-	msgIDForDeletion int,
-	args []string,
-) error {
+func (h *handler) ProductsNew(ctx context.Context, chatID int64, msgIDForDeletion int, args []string) error {
 	var (
 		cTitle,
 		sTitle,
@@ -298,4 +275,27 @@ func (h *handler) fetchProductsAndGetChattable(
 		c = m
 	}
 	return c, nil
+}
+
+func (h *handler) renderProductCard(ctx context.Context, chatID int64, p domain.HouseholdProduct,
+	keyboard tg.InlineKeyboardMarkup) error {
+	photo := tg.NewPhoto(chatID, tg.FileURL(p.ImageURL))
+	photo.Caption = templates.HouseholdProductCaption(p)
+	photo.ParseMode = "markdown"
+	photo.ReplyMarkup = keyboard
+	return h.sendWithMessageID(photo, func(msgID int) error {
+		catalogMsg := telegram.CatalogMsg{
+			MsgID:  msgID,
+			ChatID: chatID,
+		}
+		err := h.catalogMsgService.Save(ctx, catalogMsg)
+		if err != nil {
+			return tg_errors.New(tg_errors.Config{
+				OriginalErr: err,
+				Handler:     "renderProductCard",
+				CausedBy:    "Save",
+			})
+		}
+		return nil
+	})
 }

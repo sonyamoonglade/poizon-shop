@@ -4,8 +4,9 @@ import (
 	"sync"
 
 	"domain"
-	fn "github.com/sonyamoonglade/go_func"
 	"repositories"
+
+	fn "github.com/sonyamoonglade/go_func"
 )
 
 type Provider struct {
@@ -136,6 +137,21 @@ func (p *Provider) GetProduct(cTitle, sTitle, pName string, inStock bool) domain
 		Find(func(product domain.HouseholdProduct, _ int) bool {
 			return product.Name == pName
 		})
+}
+
+func (p *Provider) GetProductByISBN(isbn string) (domain.HouseholdProduct, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	for _, c := range p.items {
+		for _, s := range c.Subcategories {
+			for _, p := range s.Products {
+				if p.ISBN == isbn {
+					return p, true
+				}
+			}
+		}
+	}
+	return domain.HouseholdProduct{}, false
 }
 
 func (p *Provider) MakeOnChangeHook() repositories.HouseholdOnChangeFunc {

@@ -12,6 +12,7 @@ const (
 	NoOpCallback Callback = iota
 	Catalog
 	MyOrders
+	GetProductByISBN
 	MyCart
 	Faq
 	GetFaqAnswer
