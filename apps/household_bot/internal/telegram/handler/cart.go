@@ -2,10 +2,12 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"household_bot/internal/telegram/router"
 	"strconv"
 
-	fn "github.com/elliotchance/pie/v2"
+	fn "github.com/sonyamoonglade/go_func"
 
 	"domain"
 	"dto"
@@ -16,7 +18,7 @@ import (
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string) error {
+func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string, source router.AddToCartSource) error {
 	var telegramID = chatID
 
 	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
@@ -27,35 +29,29 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string) er
 			CausedBy:    "GetByTelegramID",
 		})
 	}
-	var (
-		cTitle,
-		sTitle,
-		inStockStr,
-		pName = args[0], args[1], args[2], args[3]
-	)
-	inStock, err := strconv.ParseBool(inStockStr)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "AddToCart",
-			CausedBy:    "ParseBool",
-		})
-	}
 
-	products, err := h.categoryService.GetProductsByCategoryAndSubcategory(ctx, cTitle, sTitle, inStock)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "AddToCart",
-			CausedBy:    "GetProductsByCategoryAndSubcategory",
-		})
+	var currentProduct domain.HouseholdProduct
+	if source == router.SourceCatalog && args != nil && len(args) > 2 {
+		cp, err := h.addToCartFromCatalog(ctx, args)
+		if err != nil {
+			return tg_errors.New(tg_errors.Config{
+				OriginalErr: err,
+				Handler:     "AddToCart",
+				CausedBy:    "addToCartFromCatalog",
+			})
+		}
+		currentProduct = cp
+	} else if source == router.SourceISBNSearch {
+		cp, err := h.addToCartFromISBNSearch(args)
+		if err != nil {
+			return tg_errors.New(tg_errors.Config{
+				OriginalErr: err,
+				Handler:     "AddToCart",
+				CausedBy:    "addToCartFromISBNSearch",
+			})
+		}
+		currentProduct = cp
 	}
-	idx := fn.
-		Of(products).
-		FindFirstUsing(func(p domain.HouseholdProduct) bool {
-			return p.Name == pName
-		})
-	currentProduct := products[idx]
 
 	// Category that customer is adding product with
 	currentCategory, err := h.categoryService.GetByID(ctx, currentProduct.CategoryID)
@@ -75,6 +71,9 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string) er
 		// Have to check if currentCategory is the same as 0th element in cart
 		firstProductCategory, err := h.categoryService.GetByID(ctx, firstProduct.CategoryID)
 		if err != nil {
+			if errors.Is(err, domain.ErrCategoryNotFound) {
+				return h.handleIfCategoryNotFound(ctx, chatID, customer, firstProduct)
+			}
 			return tg_errors.New(tg_errors.Config{
 				OriginalErr: err,
 				Handler:     "AddToCart",
@@ -88,8 +87,8 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string) er
 			return h.sendWithKeyboard(
 				chatID,
 				templates.TryAddWithInvalidInStock(
-					inStock,
-					!inStock,
+					currentCategory.InStock,
+					!currentCategory.InStock,
 				),
 				buttons.RouteToCatalogOrCart,
 			)
@@ -107,7 +106,7 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string) er
 		})
 	}
 
-	return h.sendMessage(chatID, templates.PositionAdded(pName))
+	return h.sendMessage(chatID, templates.PositionAdded(currentProduct.Name))
 }
 
 func (h *handler) GetCart(ctx context.Context, chatID int64) error {
@@ -254,4 +253,76 @@ func (h *handler) DeletePositionFromCart(ctx context.Context, chatID int64, butt
 
 func (h *handler) emptyCart(chatID int64) error {
 	return h.sendWithKeyboard(chatID, "Ваша корзина пуста!", buttons.AddPosition)
+}
+
+func (h *handler) addToCartFromCatalog(ctx context.Context, args []string) (domain.HouseholdProduct, error) {
+	var (
+		cTitle,
+		sTitle,
+		inStockStr,
+		pName = args[0], args[1], args[2], args[3]
+	)
+	inStock, err := strconv.ParseBool(inStockStr)
+	if err != nil {
+		return domain.HouseholdProduct{}, tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AddToCart",
+			CausedBy:    "ParseBool",
+		})
+	}
+
+	products, err := h.categoryService.GetProductsByCategoryAndSubcategory(ctx, cTitle, sTitle, inStock)
+	if err != nil {
+		return domain.HouseholdProduct{}, tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AddToCart",
+			CausedBy:    "GetProductsByCategoryAndSubcategory",
+		})
+	}
+	return fn.
+		Of(products).
+		Find(func(p domain.HouseholdProduct, _ int) bool {
+			return p.Name == pName
+		}), nil
+}
+
+func (h *handler) addToCartFromISBNSearch(args []string) (domain.HouseholdProduct, error) {
+	isbn := args[0]
+	product, ok := h.catalogProvider.GetProductByISBN(isbn)
+	if !ok {
+		return domain.HouseholdProduct{}, domain.ErrProductNotFound
+	}
+	return product, nil
+}
+
+func (h *handler) handleIfCategoryNotFound(ctx context.Context, chatID int64, customer domain.HouseholdCustomer, product domain.HouseholdProduct) error {
+	text := fmt.Sprintf("Категория с товаром (%s, %s) не найдена. ",
+		product.Name,
+		product.ISBN,
+	)
+	if err := h.sendMessage(chatID, text); err != nil {
+		return err
+	}
+
+	if err := h.sendMessage(chatID, "Удаляем товар"); err != nil {
+		return err
+	}
+
+	customer.Cart.RemoveAt(fn.
+		Of(customer.Cart).
+		IndexOf(func(cartProduct domain.HouseholdProduct) bool {
+			return cartProduct.ProductID == product.ProductID
+		}))
+
+	err := h.customerRepo.Update(ctx, customer.CustomerID, dto.UpdateHouseholdCustomerDTO{
+		Cart: &customer.Cart,
+	})
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "handleIfCategoryNotFound",
+			CausedBy:    "Update",
+		})
+	}
+	return nil
 }

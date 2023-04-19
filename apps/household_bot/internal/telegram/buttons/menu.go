@@ -21,7 +21,7 @@ func menu() tg.InlineKeyboardMarkup {
 			tg.NewInlineKeyboardButtonData("Каталог", callback.Inject(callback.Catalog)),
 		),
 		tg.NewInlineKeyboardRow(
-			tg.NewInlineKeyboardButtonData("Search by ISBN", callback.Inject(callback.GetProductByISBN)),
+			tg.NewInlineKeyboardButtonData("Найти по артикулу", callback.Inject(callback.GetProductByISBN)),
 		),
 		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Вопросы", callback.Inject(callback.Faq)),

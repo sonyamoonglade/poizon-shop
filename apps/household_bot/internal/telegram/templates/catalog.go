@@ -7,16 +7,16 @@ import (
 )
 
 const (
-	productTemplate       = "nazv: %s\nisbn: %s\nprice: %d\npriceGlob: %d\n\nsettings: %s"
+	productTemplate       = "Название: %s\n\nЦена: %d ₽\nЦена по рынку: %d ₽\nАртикул: *%s*\n\nОписание:\n - %s"
 	positionAddedTemplate = "Позиция %s успешно добавлена"
 )
 
 func HouseholdProductCaption(hp domain.HouseholdProduct) string {
 	return fmt.Sprintf(productTemplate,
 		hp.Name,
-		hp.ISBN,
 		hp.Price,
 		hp.PriceGlob,
+		hp.ISBN,
 		hp.Settings,
 	)
 }

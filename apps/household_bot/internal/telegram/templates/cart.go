@@ -7,16 +7,18 @@ import (
 )
 
 const (
-	cartPreviewStartTemplate = "Вот твоя корзина!\nПозиций в корзине: %d\n"
+	cartPreviewStartTemplate = "Вот твоя корзина!\nПозиций в корзине: %d\n\n"
 	cartPreviewEndTemplate   = "Итого в рублях: %d ₽\n\n" +
-		"В стоимость каждой позиции включена страховка и доставка до Москвы\n\n---\n\nГотов заказать? Жми на кнопку!"
-	positionPreviewTemplate = "%d. name: %s\nprice: %d\n"
+		"Ты выбрал товар(ы) под заказ, с учетом упаковки, страховки и доставки до Москвы, " +
+		"дальнейшая отправка в другие города считается и оплачивается отдельно в ТК 🌉\n\n" +
+		"Готов заказать? Жми кнопку!"
+	positionPreviewTemplate = "%d. Название: %s\nЦена: %d ₽\nЦена по рынку: %d ₽\nНаличие: [todo?]\nАртикул: %s\n\n"
 
 	editPositionTemplate = "Выбери номер позиции, чтобы удалить её 🙅‍♂️\n\nПо клику на " +
 		"кнопку позиция изчезнет из твоей корзины!"
 
-	tryToAddWithInvalidInStockTemplate = "Вы пытаетесь добавить товар '%s', но в вашей корзине уже присутствует" +
-		"товар '%s'.\n\nОчистите корзину или перейдите в каталог '%s'"
+	tryToAddWithInvalidInStockTemplate = "Ты пытаешься добавить товар \"%s\", но в твоей корзине уже присутствует " +
+		"товар \"%s\".\n\nОчисти корзину или перейди в каталог \"%s\"."
 )
 
 func TryAddWithInvalidInStock(actual, want bool) string {
@@ -25,9 +27,11 @@ func TryAddWithInvalidInStock(actual, want bool) string {
 }
 
 type cartPositionArgs struct {
-	n           int
-	priceRub    uint32
-	productName string
+	n         int
+	price     uint32
+	priceGlob uint32
+	name      string
+	isbn      string
 }
 
 func EditCartPosition() string {
@@ -39,9 +43,11 @@ func RenderCart(cart domain.HouseholdCart) string {
 	var total uint32
 	for i, pos := range cart {
 		start += _cartPositionTemplate(cartPositionArgs{
-			n:           i + 1,
-			priceRub:    pos.Price,
-			productName: pos.Name,
+			n:         i + 1,
+			price:     pos.Price,
+			priceGlob: pos.PriceGlob,
+			name:      pos.Name,
+			isbn:      pos.ISBN,
 		})
 		total += pos.Price
 	}
@@ -49,7 +55,14 @@ func RenderCart(cart domain.HouseholdCart) string {
 }
 
 func _cartPositionTemplate(args cartPositionArgs) string {
-	return fmt.Sprintf(positionPreviewTemplate, args.n, args.productName, args.priceRub)
+	return fmt.Sprintf(
+		positionPreviewTemplate,
+		args.n,
+		args.name,
+		args.price,
+		args.priceGlob,
+		args.isbn,
+	)
 }
 
 func _cartPreviewEndTemplate(totalRub uint32) string {

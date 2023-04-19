@@ -4,7 +4,6 @@ go 1.19
 
 require (
 	github.com/brianvoe/gofakeit/v6 v6.20.2
-	github.com/elliotchance/pie/v2 v2.5.2
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.2

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"household_bot/internal/telegram/callback"
 	"strings"
 
 	"domain"
@@ -40,8 +41,12 @@ func (h *handler) Start(ctx context.Context, m *tg.Message) error {
 	return h.sendWithKeyboard(telegramID, "start", buttons.Start)
 }
 
-func (h *handler) Menu(ctx context.Context, chatID int64) error {
-	// cleanup catalogMsgIDs...
+func (h *handler) Menu(ctx context.Context, chatID int64, deleteMsgID *int) error {
+	if deleteMsgID != nil {
+		if err := h.bot.CleanRequest(tg.NewDeleteMessage(chatID, *deleteMsgID)); err != nil {
+			return err
+		}
+	}
 	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateDefault); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -49,17 +54,17 @@ func (h *handler) Menu(ctx context.Context, chatID int64) error {
 			CausedBy:    "UpdateState",
 		})
 	}
-	return h.sendWithKeyboard(chatID, "menu", buttons.Menu)
+	return h.sendWithKeyboard(chatID, "Меню", buttons.Menu)
 }
 
 func (h *handler) Catalog(ctx context.Context, chatID int64, prevMsgID *int) error {
 	var c tg.Chattable
 	if prevMsgID != nil {
-		editMsg := tg.NewEditMessageText(chatID, *prevMsgID, "Выберите тип каталога")
+		editMsg := tg.NewEditMessageText(chatID, *prevMsgID, "Выбери тип товара")
 		editMsg.ReplyMarkup = &buttons.CatalogType
 		c = editMsg
 	} else {
-		msg := tg.NewMessage(chatID, "Выберите тип каталога")
+		msg := tg.NewMessage(chatID, "Выбери тип товара")
 		msg.ReplyMarkup = buttons.CatalogType
 		c = msg
 	}
@@ -95,7 +100,6 @@ func (h *handler) MyOrders(ctx context.Context, chatID int64) error {
 		if errors.Is(err, domain.ErrNoOrders) {
 			return h.sendMessage(chatID, "У тебя еще нет заказов 🦕")
 		}
-
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "MyOrders",
@@ -124,21 +128,38 @@ func (h *handler) AskForISBN(ctx context.Context, chatID int64) error {
 			CausedBy:    "UpdateState",
 		})
 	}
-	return h.sendMessage(chatID, "Enter ISBN, please: ")
+	return h.sendMessage(chatID, "Введи артикул товара: ")
 }
 
 func (h *handler) HandleProductByISBN(ctx context.Context, m *tg.Message) error {
 	var (
-		chatID     = m.Chat.ID
-		telegramID = chatID
-		isbn       = strings.TrimSpace(m.Text)
+		chatID = m.Chat.ID
+		isbn   = strings.TrimSpace(m.Text)
 	)
 
 	product, ok := h.catalogProvider.GetProductByISBN(isbn)
 	if !ok {
-		return h.sendMessage(chatID, fmt.Sprintf("product with isbn %s does not exist :("))
+		if err := h.sendMessage(chatID, fmt.Sprintf("Товар с артикулом: %s не существует", isbn)); err != nil {
+			return err
+		}
+		if err := h.AskForISBN(ctx, chatID); err != nil {
+			return tg_errors.New(tg_errors.Config{
+				OriginalErr: err,
+				Handler:     "HandleProductByISBN",
+				CausedBy:    "AskForISBN",
+			})
+		}
+		return nil
 	}
-	// todo:buttons
-	h.renderProductCard(ctx, chatID, product, keyboard)
 
+	backButton := buttons.NewBackButton(callback.Menu, nil, nil, nil)
+	err := h.renderProductCard(ctx, chatID, product, buttons.NewISBNProductCardButtons(isbn, backButton))
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "HandleProductByISBN",
+			CausedBy:    "renderProductCard",
+		})
+	}
+	return nil
 }

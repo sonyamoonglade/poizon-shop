@@ -21,9 +21,16 @@ var (
 	ErrNoHandler = errors.New("no handler was found")
 )
 
+type AddToCartSource int
+
+const (
+	SourceISBNSearch AddToCartSource = iota + 1
+	SourceCatalog
+)
+
 type RouteHandler interface {
 	Start(ctx context.Context, message *tg.Message) error
-	Menu(ctx context.Context, chatID int64) error
+	Menu(ctx context.Context, chatID int64, deleteMsgID *int) error
 	Catalog(ctx context.Context, chatID int64, prevMsgID *int) error
 	MyOrders(ctx context.Context, chatID int64) error
 	AskForISBN(ctx context.Context, chatID int64) error
@@ -38,7 +45,7 @@ type RouteHandler interface {
 	ProductsNew(ctx context.Context, chatID int64, msgIDForDeletion int, args []string) error
 	Products(ctx context.Context, chatID int64, prevMsgID int, args []string) error
 	ProductCard(ctx context.Context, chatID int64, prevMsgID int, args []string) error
-	AddToCart(ctx context.Context, chatID int64, args []string) error
+	AddToCart(ctx context.Context, chatID int64, args []string, source AddToCartSource) error
 
 	AskForFIO(ctx context.Context, chatID int64) error
 	HandleFIOInput(ctx context.Context, m *tg.Message) error
@@ -146,7 +153,7 @@ func (r *Router) mapToCommandHandler(ctx context.Context, m *tg.Message) error {
 	case cmd(Start):
 		return r.handler.Start(ctx, m)
 	case cmd(Menu), cmd(Menu2):
-		return r.handler.Menu(ctx, chatID)
+		return r.handler.Menu(ctx, chatID, nil)
 	default:
 		state, err := r.stateProvider.GetState(ctx, chatID)
 		if err != nil {
@@ -196,6 +203,8 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 	switch intCallback {
 	case callback.NoOpCallback:
 		return nil
+	case callback.Menu:
+		return r.handler.Menu(ctx, chatID, &msgID)
 	case callback.Catalog:
 		return r.handler.Catalog(ctx, chatID, &msgID)
 	case callback.MyCart:
@@ -203,7 +212,7 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 	case callback.MyOrders:
 		return r.handler.MyOrders(ctx, chatID)
 	case callback.GetProductByISBN:
-		return r.handler.GetProductCardByISBN(ctx, chatID, parsedArgs)
+		return r.handler.AskForISBN(ctx, chatID)
 	case callback.Faq:
 		return r.handler.FAQ(ctx, chatID)
 	case callback.GetFaqAnswer:
@@ -221,7 +230,9 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 	case callback.SelectProduct:
 		return r.handler.ProductCard(ctx, chatID, msgID, parsedArgs)
 	case callback.AddToCart:
-		return r.handler.AddToCart(ctx, chatID, parsedArgs)
+		return r.handler.AddToCart(ctx, chatID, parsedArgs, SourceCatalog)
+	case callback.AddToCartByISBN:
+		return r.handler.AddToCart(ctx, chatID, parsedArgs, SourceISBNSearch)
 	case callback.EditCart:
 		return r.handler.EditCart(ctx, chatID, msgID)
 	case callback.DeletePositionFromCart:

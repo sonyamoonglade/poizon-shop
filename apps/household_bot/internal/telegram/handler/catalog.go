@@ -24,7 +24,7 @@ func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, i
 
 	// To prev step, reInject inStock
 	backButton := buttons.NewBackButton(callback.Catalog, nil, nil, &inStock)
-	text := fmt.Sprintf("Type: %s\nCategories", domain.InStockToString(inStock))
+	text := fmt.Sprintf("Тип: %s\nКатегории:", domain.InStockToString(inStock))
 	editMsg := tg.NewEditMessageText(chatID, prevMsgID, text)
 	keyboard := buttons.NewCategoryButtons(categoryTitles, callback.SelectCategory, inStock, backButton)
 	editMsg.ReplyMarkup = &keyboard
@@ -60,7 +60,7 @@ func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int
 	)
 
 	// todo:into template
-	text := fmt.Sprintf("Type: %s\nCategory: %s\nSubcategories:", domain.InStockToString(inStock), cTitle)
+	text := fmt.Sprintf("Тип: %s\nКатегория: %s\nПроизводители:", domain.InStockToString(inStock), cTitle)
 	editMsg := tg.NewEditMessageText(chatID, prevMsgID, text)
 	editMsg.ReplyMarkup = &keyboard
 	return h.cleanSend(editMsg)
@@ -263,7 +263,7 @@ func (h *handler) fetchProductsAndGetChattable(
 		Back: backButton,
 	})
 	var c tg.Chattable
-	text := fmt.Sprintf("Type: %s\nCategory: %s\nSubcategory: %s\nProducts:", domain.InStockToString(inStock), cTitle, sTitle)
+	text := fmt.Sprintf("Тип: %s\nКатегория: %s\nПроизводитель: %s\nМодели:", domain.InStockToString(inStock), cTitle, sTitle)
 	if edit && editMsgID != nil {
 		m := tg.NewEditMessageText(chatID, *editMsgID, text)
 		m.ReplyMarkup = &keyboard

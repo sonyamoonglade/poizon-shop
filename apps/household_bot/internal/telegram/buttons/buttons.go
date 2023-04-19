@@ -98,6 +98,8 @@ func (b BackButton) ToRow() []tg.InlineKeyboardButton {
 		data = callback.Inject(b.c, *b.cTitle, strconv.FormatBool(*b.inStock))
 	} else if b.inStock != nil {
 		data = callback.Inject(b.c, strconv.FormatBool(*b.inStock))
+	} else {
+		data = callback.Inject(b.c)
 	}
 	return tg.NewInlineKeyboardRow(tg.NewInlineKeyboardButtonData(backButtonTitle, data))
 }

@@ -64,6 +64,14 @@ func NewProductCardButtons(args ProductCardButtonsArgs) tg.InlineKeyboardMarkup 
 	return tg.NewInlineKeyboardMarkup(rows...)
 }
 
+func NewISBNProductCardButtons(isbn string, back BackButton) tg.InlineKeyboardMarkup {
+	rows := make([][]tg.InlineKeyboardButton, 0, 2)
+	data := callback.Inject(callback.AddToCartByISBN, isbn)
+	rows = append(rows, tg.NewInlineKeyboardRow(tg.NewInlineKeyboardButtonData("Добавить в корзину", data)))
+	rows = append(rows, back.ToRow())
+	return tg.NewInlineKeyboardMarkup(rows...)
+}
+
 func jumpToCatalogOrCart() tg.InlineKeyboardMarkup {
 	return tg.NewInlineKeyboardMarkup(
 		tg.NewInlineKeyboardRow(

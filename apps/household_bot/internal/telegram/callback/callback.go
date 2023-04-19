@@ -10,6 +10,7 @@ type Callback int
 
 const (
 	NoOpCallback Callback = iota
+	Menu
 	Catalog
 	MyOrders
 	GetProductByISBN
@@ -23,6 +24,7 @@ const (
 	SelectProduct
 	FromProductCardToProducts
 	AddToCart
+	AddToCartByISBN
 	EditCart
 	DeletePositionFromCart
 	MakeOrder

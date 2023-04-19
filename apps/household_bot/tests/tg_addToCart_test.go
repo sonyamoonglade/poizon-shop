@@ -69,7 +69,6 @@ func (s *AppTestSuite) TestHandlerAddToCart() {
 		require.NoError(err)
 
 		customer := domain.NewHouseholdCustomer(telegramID, username)
-		customer.State = domain.StateWaitingToAddToCart
 		// Initially has this product in cart
 		customer.Cart.Add(c1.Subcategories[0].Products[0])
 		err = s.repositories.HouseholdCustomer.Save(ctx, customer)

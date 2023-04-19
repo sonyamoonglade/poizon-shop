@@ -73,9 +73,11 @@ func RenderOrder(order domain.HouseholdOrder) string {
 	start := cartWarn + _orderStart(order)
 	for _, pos := range order.Cart {
 		start += _cartPositionTemplate(cartPositionArgs{
-			n:           len(order.Cart),
-			priceRub:    pos.Price,
-			productName: pos.Name,
+			n:         len(order.Cart),
+			price:     pos.Price,
+			priceGlob: pos.PriceGlob,
+			name:      pos.Name,
+			isbn:      pos.ISBN,
 		})
 	}
 	return start + _orderEnd(order.AmountRUB) + sendingRequsitiesTemplate
@@ -85,11 +87,13 @@ func RenderMyOrders(name string, orders []domain.HouseholdOrder) string {
 	start := fmt.Sprintf(myOrdersStart, name)
 	for _, o := range orders {
 		start += _orderStart(o)
-		for _, item := range o.Cart {
+		for _, pos := range o.Cart {
 			start += _cartPositionTemplate(cartPositionArgs{
-				n:           len(o.Cart),
-				priceRub:    item.Price,
-				productName: item.Name,
+				n:         len(o.Cart),
+				price:     pos.Price,
+				priceGlob: pos.PriceGlob,
+				name:      pos.Name,
+				isbn:      pos.ISBN,
 			})
 		}
 		start += _orderEnd(o.AmountRUB) + myOrdersSeparator

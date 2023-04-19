@@ -1,6 +1,7 @@
 package catalog
 
 import (
+	"fmt"
 	"sync"
 
 	"domain"
@@ -141,6 +142,7 @@ func (p *Provider) GetProduct(cTitle, sTitle, pName string, inStock bool) domain
 
 func (p *Provider) GetProductByISBN(isbn string) (domain.HouseholdProduct, bool) {
 	p.mu.RLock()
+	fmt.Println(isbn)
 	defer p.mu.RUnlock()
 	for _, c := range p.items {
 		for _, s := range c.Subcategories {
