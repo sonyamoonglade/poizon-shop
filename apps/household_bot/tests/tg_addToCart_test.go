@@ -7,6 +7,7 @@ import (
 	"domain"
 	f "github.com/brianvoe/gofakeit/v6"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"household_bot/internal/telegram/router"
 )
 
 func (s *AppTestSuite) TestHandlerAddToCart() {
@@ -83,7 +84,7 @@ func (s *AppTestSuite) TestHandlerAddToCart() {
 		)
 		expectedArgs := []string{cTitle, sTitle, inStockStr, pName}
 
-		err = s.tghandler.AddToCart(ctx, telegramID, expectedArgs)
+		err = s.tghandler.AddToCart(ctx, telegramID, expectedArgs, router.SourceCatalog)
 		require.NoError(err)
 
 		customer, err = s.repositories.HouseholdCustomer.GetByTelegramID(ctx, telegramID)
