@@ -35,6 +35,8 @@ type RouteHandler interface {
 	MyOrders(ctx context.Context, chatID int64) error
 	AskForISBN(ctx context.Context, chatID int64) error
 	HandleProductByISBN(ctx context.Context, m *tg.Message) error
+	AskForPromocode(ctx context.Context, chatID int64) error
+	HandlePromocodeInput(ctx context.Context, m *tg.Message) error
 
 	GetCart(ctx context.Context, chatID int64) error
 	EditCart(ctx context.Context, chatID int64, cartMsgID int) error
@@ -172,6 +174,8 @@ func (r *Router) mapToCommandHandler(ctx context.Context, m *tg.Message) error {
 			return r.handler.HandleDeliveryAddressInput(ctx, m)
 		case domain.StateWaitingForISBN:
 			return r.handler.HandleProductByISBN(ctx, m)
+		case domain.StateWaitingForPromocode:
+			return r.handler.HandlePromocodeInput(ctx, m)
 		default:
 			return ErrNoHandler
 		}
@@ -237,6 +241,8 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 		return r.handler.EditCart(ctx, chatID, msgID)
 	case callback.DeletePositionFromCart:
 		return r.handler.DeletePositionFromCart(ctx, chatID, msgID, parsedArgs)
+	case callback.Promocode:
+		return r.handler.AskForPromocode(ctx, chatID)
 	case callback.MakeOrder:
 		// Initial step to make order
 		return r.handler.AskForFIO(ctx, chatID)
@@ -273,12 +279,8 @@ func (r *Router) handleError(ctx context.Context, err error, u tg.Update) {
 	var telegramError *tg_errors.Error
 
 	if errors.As(err, &telegramError) {
-		errAsJson, err := telegramError.ToJSON()
-		if err != nil {
-			logger.Get().Error("telegramError.ToJSON", zap.Error(err))
-		}
 		logger.Get().Error("error in handler occurred",
-			zap.Any("error", errAsJson),
+			zap.String("error", telegramError.String()),
 			zap.String("from", from),
 			zap.Int64("telegramId", telegramID),
 		)

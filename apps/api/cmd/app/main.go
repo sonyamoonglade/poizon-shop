@@ -100,7 +100,7 @@ func run() error {
 		}
 	}
 	repos := repositories.NewRepositories(mongo, clothingHook, householdHook)
-	householdCategoryService := services.NewHouseholdCategoryService(repos.HouseholdCategory, mongo)
+	srvs := services.NewServices(repos, mongo)
 
 	// HTTP api
 	app := fiber.New(fiber.Config{
@@ -128,7 +128,7 @@ func run() error {
 		return c.Next()
 	})
 
-	apiController := handler.NewHandler(repos, householdCategoryService)
+	apiController := handler.NewHandler(repos, srvs)
 	apiController.RegisterRoutes(app, cfg.HTTP.ApiKey)
 
 	if err := app.Listen(":" + cfg.HTTP.Port); err != nil {

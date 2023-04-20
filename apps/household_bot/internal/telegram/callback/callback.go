@@ -15,6 +15,7 @@ const (
 	MyOrders
 	GetProductByISBN
 	MyCart
+	Promocode
 	Faq
 	GetFaqAnswer
 	CTypeOrder

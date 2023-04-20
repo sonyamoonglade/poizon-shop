@@ -3,6 +3,8 @@ package handler
 import (
 	"errors"
 	"fmt"
+	"net/http"
+
 	"onlineshop/api/internal/input"
 
 	"github.com/gofiber/fiber/v2"
@@ -19,15 +21,42 @@ func (h *Handler) NewPromocode(c *fiber.Ctx) error {
 		return fmt.Errorf("body parser: %w", err)
 	}
 
-	return nil
+	if err := h.repositories.Promocode.Save(c.Context(), inp.ToDomainPromocode()); err != nil {
+		return fmt.Errorf("save: %w", err)
+	}
+
+	return c.SendStatus(http.StatusCreated)
 }
 
 func (h *Handler) GetAllPromocodes(c *fiber.Ctx) error {
-	return nil
+	promocodes, err := h.repositories.Promocode.GetAll(c.Context())
+	if err != nil {
+		return fmt.Errorf("get all: %w", err)
+	}
+	return c.Status(http.StatusOK).JSON(promocodes)
 }
 
 func (h *Handler) DeletePromocode(c *fiber.Ctx) error {
-	return nil
+	promoId, err := h.getPromocodeIdFromParams(c)
+	if err != nil {
+		return fmt.Errorf("get promo id from params: %w", err)
+	}
+	if err := h.repositories.Promocode.Delete(c.Context(), promoId); err != nil {
+		return fmt.Errorf("delete: %w", err)
+	}
+	return c.SendStatus(http.StatusOK)
+}
+
+func (h *Handler) GetByID(c *fiber.Ctx) error {
+	promoId, err := h.getPromocodeIdFromParams(c)
+	if err != nil {
+		return fmt.Errorf("get promo id from params: %w", err)
+	}
+	promo, err := h.repositories.Promocode.GetByID(c.Context(), promoId)
+	if err != nil {
+		return fmt.Errorf("get by id: %w", err)
+	}
+	return c.Status(http.StatusOK).JSON(promo)
 }
 
 func (h *Handler) getPromocodeIdFromParams(c *fiber.Ctx) (primitive.ObjectID, error) {

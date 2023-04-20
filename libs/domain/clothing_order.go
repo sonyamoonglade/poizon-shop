@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"time"
+
 	"functools"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -14,9 +16,10 @@ type ClothingOrder struct {
 	AmountRUB       uint64             `json:"amountRub" bson:"amountRub"`
 	AmountYUAN      uint64             `json:"amountYuan" bson:"amountYuan"`
 	DeliveryAddress string             `json:"deliveryAddress" bson:"deliveryAddress"`
-	Comment         *string            `json:"comment" bson:"comment"`
 	Status          Status             `json:"status" bson:"status"`
 	Source          Source             `json:"source" bson:"source"`
+	Comment         *string            `json:"comment" bson:"comment"`
+	CreatedAt       time.Time          `json:"createdAt" bson:"createdAt"`
 	IsPaid          bool               `json:"isPaid" bson:"isPaid"`
 	IsApproved      bool               `json:"isApproved" bson:"isApproved"`
 	IsExpress       bool               `json:"isExpress" bson:"isExpress"`
@@ -44,9 +47,8 @@ func NewClothingOrder(customer ClothingCustomer,
 		AmountRUB:       totals.rub,
 		AmountYUAN:      totals.yuan,
 		DeliveryAddress: deliveryAddress,
-		IsPaid:          false,
 		IsExpress:       isExpress,
-		IsApproved:      false,
+		CreatedAt:       time.Now().UTC(),
 		Status:          StatusNotApproved,
 		Source:          SourceClothing,
 	}

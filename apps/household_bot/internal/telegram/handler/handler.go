@@ -33,6 +33,7 @@ type handler struct {
 	rateProvider      RateProvider
 	catalogProvider   *catalog.Provider
 	customerRepo      repositories.HouseholdCustomer
+	promocodeRepo     repositories.Promocode
 	categoryService   services.HouseholdCategory
 	orderService      services.Order[domain.HouseholdOrder]
 	catalogMsgService services.HouseholdCatalogMsg
@@ -51,6 +52,7 @@ func NewHandler(b Bot,
 		rateProvider:      rp,
 		categoryService:   categoryService,
 		customerRepo:      repos.HouseholdCustomer,
+		promocodeRepo:     repos.Promocode,
 		catalogProvider:   catalogProvider,
 		orderService:      orderService,
 		catalogMsgService: catalogMsgService,

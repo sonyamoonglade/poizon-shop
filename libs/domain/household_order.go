@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"time"
+
 	"functools"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -16,6 +18,7 @@ type HouseholdOrder struct {
 	Comment         *string            `json:"comment" bson:"comment"`
 	Status          Status             `json:"status" bson:"status"`
 	Source          Source             `json:"source" bson:"source"`
+	CreatedAt       time.Time          `json:"createdAt" bson:"createdAt"`
 	IsPaid          bool               `json:"isPaid" bson:"isPaid"`
 	IsApproved      bool               `json:"isApproved" bson:"isApproved"`
 }
@@ -37,5 +40,15 @@ func NewHouseholdOrder(customer HouseholdCustomer,
 		DeliveryAddress: deliveryAddress,
 		Status:          StatusNotApproved,
 		Source:          SourceHousehold,
+		CreatedAt:       time.Now().UTC(),
 	}
+}
+
+const defaultComment = "комментарий админа отсутствует"
+
+func (h HouseholdOrder) GetComment() string {
+	if h.Comment != nil {
+		return *h.Comment
+	}
+	return defaultComment
 }

@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"household_bot/internal/telegram/router"
 	"strconv"
+
+	"household_bot/internal/telegram/router"
 
 	fn "github.com/sonyamoonglade/go_func"
 
@@ -156,7 +157,6 @@ func (h *handler) EditCart(ctx context.Context, chatID int64, cartMsgID int) err
 
 func (h *handler) DeletePositionFromCart(ctx context.Context, chatID int64, buttonsMsgID int, args []string) error {
 	var (
-		telegramID = chatID
 		cartMsgIDStr,
 		buttonClickedStr = args[0], args[1]
 	)
@@ -179,16 +179,12 @@ func (h *handler) DeletePositionFromCart(ctx context.Context, chatID int64, butt
 		})
 	}
 
-	if err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForCartPositionToEdit); err != nil {
-		return err
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForCartPositionToEdit)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "RemoveCartPosition",
-			CausedBy:    "GetByTelegramID",
+			CausedBy:    "checkRequiredState",
 		})
 	}
 

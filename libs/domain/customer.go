@@ -31,6 +31,7 @@ var (
 	StateWaitingForPhoneNumber         = State{12}
 	StateWaitingForDeliveryAddress     = State{13}
 	StateWaitingForISBN                = State{14}
+	StateWaitingForPromocode           = State{15}
 )
 
 var (

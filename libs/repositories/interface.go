@@ -72,7 +72,10 @@ type HouseholdCatalogMsg interface {
 }
 
 type Promocode interface {
-	Save(ctx context.Context, p domain.Promocode)
-	Delete(ctx context.Context, promocodeId primitive.ObjectID) error
-	Update()
+	GetAll(ctx context.Context) ([]domain.Promocode, error)
+	GetByID(ctx context.Context, promocodeID primitive.ObjectID) (domain.Promocode, error)
+	GetByShortID(ctx context.Context, shortID string) (domain.Promocode, error)
+	Save(ctx context.Context, promo domain.Promocode) error
+	Delete(ctx context.Context, promocodeID primitive.ObjectID) error
+	Update(ctx context.Context, promocodeID primitive.ObjectID, dto dto.UpdatePromocodeDTO) error
 }

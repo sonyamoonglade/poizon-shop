@@ -29,6 +29,10 @@ func (c ChangeOrderStatusInput) ToDTO(orderID primitive.ObjectID) dto.ChangeOrde
 	}
 }
 
+type RemoveItemFromCatalogInput struct {
+	ItemID primitive.ObjectID `json:"itemId"`
+}
+
 type AddItemToCatalogInput struct {
 	ImageURLs       []string `json:"imageUrls"`
 	AvailableSizes  []string `json:"availableSizes"`
@@ -55,4 +59,13 @@ func (a AddItemToCatalogInput) ToNewClothingProduct(rank uint) domain.ClothingPr
 type NewPromocodeInput struct {
 	Description string                                 `json:"description"`
 	Discounts   map[string] /* source string */ uint32 `json:"discounts"`
+	ShortID     string                                 `json:"shortId"`
+}
+
+func (n NewPromocodeInput) ToDomainPromocode() domain.Promocode {
+	discounts := make(domain.DiscountMap)
+	for src, discount := range n.Discounts {
+		discounts[domain.SourceFromString(src)] = discount
+	}
+	return domain.NewPromocode(n.Description, discounts, n.ShortID)
 }

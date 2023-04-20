@@ -8,15 +8,14 @@ import (
 )
 
 var (
-	Menu        = menu()
 	Start       = start()
 	CatalogType = catalogType()
 	AddPosition = addPosition()
 	MakeOrder   = makeOrder()
 )
 
-func menu() tg.InlineKeyboardMarkup {
-	return tg.NewInlineKeyboardMarkup(
+func Menu(withPromo bool) tg.InlineKeyboardMarkup {
+	rows := [][]tg.InlineKeyboardButton{
 		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Каталог", callback.Inject(callback.Catalog)),
 		),
@@ -32,7 +31,13 @@ func menu() tg.InlineKeyboardMarkup {
 		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Посмотреть корзину", callback.Inject(callback.MyCart)),
 		),
-	)
+	}
+	if withPromo {
+		rows = append(rows, tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Ввести промокод", callback.Inject(callback.Promocode)),
+		))
+	}
+	return tg.NewInlineKeyboardMarkup(rows...)
 }
 
 func start() tg.ReplyKeyboardMarkup {

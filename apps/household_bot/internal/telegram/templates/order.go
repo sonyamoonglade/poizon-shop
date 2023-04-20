@@ -41,8 +41,15 @@ const (
 		"и подтвердит статус покупки.\n\n‼️Никому кроме бота деньги отправлять не нужно‼️Даже админу‼️\n\nТолько " +
 		"админ проверяет поступление денег и обозначает статус покупки ✅"
 
+	myOrdersBody = "Заказ: %s\nАдрес доставки: %s\n\nОплачен: %s\nПодтвержден админом: %s\n" +
+		"Статус заказа: %s\n\nТоваров в корзине: %d\nСумма в рублях: %d ₽\n\n" +
+		"Комментарий админа: %s\n\nТовар(ы):\n"
+
 	myOrdersStart     = "Вот твои заказы, %s!\n\n"
 	myOrdersSeparator = "\n-----\n\n"
+
+	yes string = "✅"
+	no         = "❌"
 )
 
 func AskForFIO() string {
@@ -65,15 +72,11 @@ func Requisites(shortOrderID string, r domain.Requisites) string {
 	return fmt.Sprintf(requisitesTemplate, shortOrderID, r.SberID, r.TinkoffID, shortOrderID)
 }
 
-func AskForOrderType() string {
-	return askForOrderTypeTemplate
-}
-
-func RenderOrder(order domain.HouseholdOrder) string {
+func RenderOrderAfterPayment(order domain.HouseholdOrder) string {
 	start := cartWarn + _orderStart(order)
-	for _, pos := range order.Cart {
+	for i, pos := range order.Cart {
 		start += _cartPositionTemplate(cartPositionArgs{
-			n:         len(order.Cart),
+			n:         i + 1,
 			price:     pos.Price,
 			priceGlob: pos.PriceGlob,
 			name:      pos.Name,
@@ -86,10 +89,10 @@ func RenderOrder(order domain.HouseholdOrder) string {
 func RenderMyOrders(name string, orders []domain.HouseholdOrder) string {
 	start := fmt.Sprintf(myOrdersStart, name)
 	for _, o := range orders {
-		start += _orderStart(o)
-		for _, pos := range o.Cart {
+		start += _myOrderBody(o)
+		for i, pos := range o.Cart {
 			start += _cartPositionTemplate(cartPositionArgs{
-				n:         len(o.Cart),
+				n:         i + 1,
 				price:     pos.Price,
 				priceGlob: pos.PriceGlob,
 				name:      pos.Name,
@@ -120,9 +123,23 @@ func _orderEnd(totalRub uint32) string {
 	return fmt.Sprintf(orderEndTemplate, totalRub)
 }
 
-func _formatIsExpress(isExpress bool) string {
-	if isExpress {
-		return domain.ExpressStr
+func _myOrderBody(o domain.HouseholdOrder) string {
+	return fmt.Sprintf(
+		myOrdersBody,
+		o.ShortID,
+		o.DeliveryAddress,
+		formatBool(o.IsPaid),
+		formatBool(o.IsApproved),
+		domain.StatusTexts[o.Status],
+		len(o.Cart),
+		o.AmountRUB,
+		o.GetComment(),
+	)
+}
+
+func formatBool(b bool) string {
+	if b {
+		return yes
 	}
-	return domain.NormalStr
+	return no
 }

@@ -1,0 +1,87 @@
+[
+  {
+    "createIndexes": "customers",
+    "indexes": [
+      {
+        "key": {
+          "telegramId": 1
+        },
+        "name": "telegramId_unique_asc",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "createIndexes": "orders",
+    "indexes": [
+      {
+        "key": {
+          "shortId": 1
+        },
+        "name": "shortId_unique_asc",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "createIndexes": "h-orders",
+    "indexes": [
+      {
+        "key": {
+          "shortId": 1
+        },
+        "name": "shortId_unique_asc",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "createIndexes": "h-catalog_msg",
+    "indexes": [
+      {
+        "key": {
+          "msgId": 1
+        },
+        "name": "msgId_unique",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "createIndexes": "h-categories",
+    "indexes": [
+      {
+        "key": {
+          "rank": 1,
+          "inStock": 1
+        },
+        "name": "rank_inStock_unique",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "createIndexes": "h-customers",
+    "indexes": [
+      {
+        "key": {
+          "telegramId": 1
+        },
+        "name": "telegramId_unique",
+        "unique": true
+      }
+    ]
+  },
+  {
+    "createIndexes": "promocodes",
+    "indexes": [
+      {
+        "key": {
+          "shortId": 1
+        },
+        "name": "shortId_unique",
+        "unique": true
+      }
+    ]
+  }
+]

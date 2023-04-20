@@ -81,7 +81,7 @@ var (
 )
 
 type Source struct {
-	V string
+	V string `json:"v" bson:"v"`
 }
 
 var (

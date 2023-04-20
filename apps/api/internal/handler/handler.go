@@ -17,16 +17,16 @@ type RateProvider interface {
 }
 
 type Handler struct {
-	repositories    repositories.Repositories
-	categoryService services.HouseholdCategory
-	rateProvider    RateProvider
+	repositories repositories.Repositories
+	services     services.Services
+	rateProvider RateProvider
 }
 
-func NewHandler(repos repositories.Repositories, categoryService services.HouseholdCategory) *Handler {
+func NewHandler(repos repositories.Repositories, services services.Services) *Handler {
 	return &Handler{
-		repositories:    repos,
-		rateProvider:    repos.Rate,
-		categoryService: categoryService,
+		repositories: repos,
+		rateProvider: repos.Rate,
+		services:     services,
 	}
 }
 
@@ -38,6 +38,14 @@ func (h *Handler) RegisterRoutes(router fiber.Router, apiKey string) {
 
 	api.Post("/updateRate", h.UpdateRate)
 	api.Get("/currentRate", h.CurrentRate)
+
+	promocode := api.Group("/promocode")
+	{
+		promocode.Get("/all", h.GetAllPromocodes)
+		promocode.Get("/:promocodeId", h.GetByID)
+		promocode.Post("/new", h.NewPromocode)
+		promocode.Post("/:promocodeId/delete", h.DeletePromocode)
+	}
 
 	order := api.Group("/order/:source")
 	{
@@ -65,12 +73,6 @@ func (h *Handler) RegisterRoutes(router fiber.Router, apiKey string) {
 		householdCategories.Post("/:categoryId/delete", h.DeleteCategory)
 	}
 
-	promocode := api.Group("/promocode")
-	{
-		promocode.Post("/new")
-		promocode.Get("/all")
-		promocode.Post("/:promocodeId/delete")
-	}
 }
 func (h *Handler) Home(c *fiber.Ctx) error {
 	return c.SendStatus(http.StatusOK)

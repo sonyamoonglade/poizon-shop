@@ -2,11 +2,12 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 
 	"domain"
-	"functools"
+	fn "github.com/sonyamoonglade/go_func"
 	"household_bot/internal/telegram/buttons"
 	"household_bot/internal/telegram/callback"
 	"household_bot/internal/telegram/templates"
@@ -81,14 +82,6 @@ func (h *handler) Products(ctx context.Context, chatID int64, prevMsgID int, arg
 		})
 	}
 
-	// p, ok := h.catalogProvider.GetProductAt(cTitle, sTitle, 0)
-	// if !ok {
-	// 	return tg_errors.New(tg_errors.Config{
-	// 		OriginalErr: domain.ErrProductNotFound,
-	// 		Handler:     "Products",
-	// 		CausedBy:    "GetProductAt",
-	// 	})
-	// }
 	backButton := buttons.NewBackButton(callback.SelectCategory, &cTitle, nil, &inStock)
 	c, err := h.fetchProductsAndGetChattable(
 		chatID,
@@ -191,14 +184,6 @@ func (h *handler) ProductsNew(ctx context.Context, chatID int64, msgIDForDeletio
 			CausedBy:    "ParseBool",
 		})
 	}
-	// p, ok := h.catalogProvider.GetProductAt(cTitle, sTitle, 0)
-	// if !ok {
-	// 	return tg_errors.New(tg_errors.Config{
-	// 		OriginalErr: domain.ErrProductNotFound,
-	// 		Handler:     "Products",
-	// 		CausedBy:    "GetProductAt",
-	// 	})
-	// }
 	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateDefault); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -232,6 +217,9 @@ func (h *handler) ProductsNew(ctx context.Context, chatID int64, msgIDForDeletio
 		}
 		err := h.catalogMsgService.Save(ctx, catalogMsg)
 		if err != nil {
+			if errors.Is(err, telegram.ErrMessageAlreadyExists) {
+				return nil
+			}
 			return tg_errors.New(tg_errors.Config{
 				OriginalErr: err,
 				Handler:     "ProductsNew",
@@ -257,9 +245,9 @@ func (h *handler) fetchProductsAndGetChattable(
 		STitle:  sTitle,
 		Cb:      callback.SelectProduct,
 		InStock: inStock,
-		Names: functools.Map(func(p domain.HouseholdProduct, _ int) string {
+		Names: fn.Map(products, func(p domain.HouseholdProduct, _ int) string {
 			return p.Name
-		}, products),
+		}),
 		Back: backButton,
 	})
 	var c tg.Chattable
@@ -290,6 +278,9 @@ func (h *handler) renderProductCard(ctx context.Context, chatID int64, p domain.
 		}
 		err := h.catalogMsgService.Save(ctx, catalogMsg)
 		if err != nil {
+			if errors.Is(err, telegram.ErrMessageAlreadyExists) {
+				return nil
+			}
 			return tg_errors.New(tg_errors.Config{
 				OriginalErr: err,
 				Handler:     "renderProductCard",

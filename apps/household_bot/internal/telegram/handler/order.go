@@ -87,25 +87,15 @@ func (h *handler) AskForFIO(ctx context.Context, chatID int64) error {
 
 func (h *handler) HandleFIOInput(ctx context.Context, m *tg.Message) error {
 	var (
-		chatID     = m.From.ID
-		telegramID = chatID
-		fullName   = strings.TrimSpace(m.Text)
+		chatID   = m.From.ID
+		fullName = strings.TrimSpace(m.Text)
 	)
-
-	if err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForFIO); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandleFIOInput",
-			CausedBy:    "checkRequiredState",
-		})
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForFIO)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandleFIOInput",
-			CausedBy:    "GetByTelegramID",
+			CausedBy:    "checkRequiredState",
 		})
 	}
 
@@ -146,11 +136,11 @@ func (h *handler) HandleFIOInput(ctx context.Context, m *tg.Message) error {
 func (h *handler) HandlePhoneNumberInput(ctx context.Context, m *tg.Message) error {
 	var (
 		chatID      = m.From.ID
-		telegramID  = chatID
 		phoneNumber = strings.TrimSpace(m.Text)
 	)
 
-	if err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForPhoneNumber); err != nil {
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForPhoneNumber)
+	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandlePhoneNumberInput",
@@ -167,15 +157,6 @@ func (h *handler) HandlePhoneNumberInput(ctx context.Context, m *tg.Message) err
 			})
 		}
 		return nil
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandlePhoneNumberInput",
-			CausedBy:    "GetByTelegramID",
-		})
 	}
 
 	updateDTO := dto.UpdateHouseholdCustomerDTO{
@@ -203,25 +184,16 @@ func (h *handler) HandlePhoneNumberInput(ctx context.Context, m *tg.Message) err
 
 func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message) error {
 	var (
-		chatID     = m.From.ID
-		telegramID = chatID
-		address    = strings.TrimSpace(m.Text)
+		chatID  = m.From.ID
+		address = strings.TrimSpace(m.Text)
 	)
 
-	if err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForDeliveryAddress); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandleDeliveryAddressInput",
-			CausedBy:    "checkRequiredState",
-		})
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForDeliveryAddress)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandleDeliveryAddressInput",
-			CausedBy:    "GetByTelegramID",
+			CausedBy:    "checkRequiredState",
 		})
 	}
 
@@ -271,7 +243,7 @@ func (h *handler) sendOrder(ctx context.Context,
 	order domain.HouseholdOrder,
 	chatID int64) error {
 
-	orderText := templates.RenderOrder(order)
+	orderText := templates.RenderOrderAfterPayment(order)
 	if err := h.sendMessage(chatID, orderText); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,

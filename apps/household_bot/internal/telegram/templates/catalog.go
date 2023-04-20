@@ -24,10 +24,3 @@ func HouseholdProductCaption(hp domain.HouseholdProduct) string {
 func PositionAdded(name string) string {
 	return fmt.Sprintf(positionAddedTemplate, name)
 }
-
-func formatBool(b bool) string {
-	if b {
-		return "Da"
-	}
-	return "No"
-}
