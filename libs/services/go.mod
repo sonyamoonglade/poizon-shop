@@ -6,7 +6,7 @@ require (
 	domain v0.0.0
 	dto v0.0.0
 	functools v0.0.0
-	github.com/sonyamoonglade/go_func v0.0.0-20230418172352-ef19a0c744be
+	github.com/sonyamoonglade/go_func v0.0.0-20230418180836-d7b9b025b11a
 	github.com/stretchr/testify v1.8.2
 	go.mongodb.org/mongo-driver v1.11.4
 	go.uber.org/multierr v1.11.0

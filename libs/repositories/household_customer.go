@@ -7,6 +7,7 @@ import (
 
 	"domain"
 	"dto"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -94,6 +95,11 @@ func (h *householdCustomerRepo) Update(ctx context.Context, customerID primitive
 	if dto.Meta != nil {
 		update["meta"] = dto.Meta
 	}
+
+	if dto.PromocodeID != nil {
+		update["promocodeId"] = *dto.PromocodeID
+	}
+
 	_, err := h.customers.UpdateByID(ctx, customerID, bson.M{"$set": update})
 	return err
 }

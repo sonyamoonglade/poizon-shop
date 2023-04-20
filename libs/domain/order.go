@@ -48,6 +48,11 @@ func (o OrderType) AsHumanString() string {
 
 type Status int
 
+func IsValidOrderStatus(s Status) bool {
+	_, ok := StatusTexts[s]
+	return ok
+}
+
 const (
 	StatusNotApproved Status = iota + 1
 	StatusApproved
@@ -79,18 +84,26 @@ type Source struct {
 	V string
 }
 
+var (
+	c               = "clothing"
+	h               = "household"
+	SourceNone      = Source{"None"}
+	SourceClothing  = Source{c}
+	SourceHousehold = Source{h}
+)
+
 func (s Source) String() string {
 	return s.V
 }
 
-var (
-	SourceClothing  = Source{"Clothing"}
-	SourceHousehold = Source{"Household"}
-)
+func SourceFromString(s string) Source {
+	if s == c {
+		return SourceClothing
+	} else if s == h {
+		return SourceHousehold
 
-func IsValidOrderStatus(s Status) bool {
-	_, ok := StatusTexts[s]
-	return ok
+	}
+	return SourceNone
 }
 
 type formula func(x uint64, rate float64) (rub uint64)

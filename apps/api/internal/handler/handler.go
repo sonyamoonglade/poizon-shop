@@ -4,10 +4,11 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/gofiber/fiber/v2"
 	"onlineshop/api/internal/auth"
 	"repositories"
 	"services"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 type RateProvider interface {
@@ -62,6 +63,13 @@ func (h *Handler) RegisterRoutes(router fiber.Router, apiKey string) {
 		householdCategories.Post("/new", h.NewCategory)
 		householdCategories.Put("/:categoryId/update", h.UpdateCategory)
 		householdCategories.Post("/:categoryId/delete", h.DeleteCategory)
+	}
+
+	promocode := api.Group("/promocode")
+	{
+		promocode.Post("/new")
+		promocode.Get("/all")
+		promocode.Post("/:promocodeId/delete")
 	}
 }
 func (h *Handler) Home(c *fiber.Ctx) error {

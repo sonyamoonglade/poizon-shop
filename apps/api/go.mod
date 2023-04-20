@@ -70,7 +70,6 @@ replace (
 	dto v0.0.0 => ../../libs/dto
 	functools v0.0.0 => ../../libs/functools
 
-	github.com/sonyamoonglade/go_func => ../../../go_func
 	household_bot v0.0.0 => ../household_bot
 	logger v0.0.0 => ../../libs/logger
 	nanoid => ../../libs/nanoid

@@ -10,16 +10,19 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// todo: unify to generic customer interface!!
 type ClothingCustomer interface {
 	GetByTelegramID(ctx context.Context, telegramID int64) (domain.ClothingCustomer, error)
 	All(ctx context.Context) ([]domain.ClothingCustomer, error)
 	Save(ctx context.Context, c domain.ClothingCustomer) error
 	UpdateState(ctx context.Context, telegramID int64, newState domain.State) error
-	NullifyCatalogOffsets(ctx context.Context) error
 	Update(ctx context.Context, customerID primitive.ObjectID, dto dto.UpdateClothingCustomerDTO) error
 	Delete(ctx context.Context, customerID primitive.ObjectID) error
+
+	NullifyCatalogOffsets(ctx context.Context) error
 }
 
+// todo: unify to generic customer interface!!
 type HouseholdCustomer interface {
 	GetByTelegramID(ctx context.Context, telegramID int64) (domain.HouseholdCustomer, error)
 	All(ctx context.Context) ([]domain.HouseholdCustomer, error)
@@ -66,4 +69,10 @@ type HouseholdCatalogMsg interface {
 	Save(ctx context.Context, m telegram.CatalogMsg) error
 	Delete(ctx context.Context, id primitive.ObjectID) error
 	DeleteByMsgID(ctx context.Context, msgID int) error
+}
+
+type Promocode interface {
+	Save(ctx context.Context, p domain.Promocode)
+	Delete(ctx context.Context, promocodeId primitive.ObjectID) error
+	Update()
 }

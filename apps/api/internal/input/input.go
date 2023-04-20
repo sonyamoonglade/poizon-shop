@@ -3,6 +3,7 @@ package input
 import (
 	"domain"
 	"dto"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -51,14 +52,7 @@ func (a AddItemToCatalogInput) ToNewClothingProduct(rank uint) domain.ClothingPr
 	}
 }
 
-type RemoveItemFromCatalogInput struct {
-	ItemID primitive.ObjectID `json:"itemId"`
-}
-
-type RankUpInput struct {
-	ItemID primitive.ObjectID `json:"itemId"`
-}
-
-type RankDownInput struct {
-	ItemID primitive.ObjectID `json:"itemId"`
+type NewPromocodeInput struct {
+	Description string                                 `json:"description"`
+	Discounts   map[string] /* source string */ uint32 `json:"discounts"`
 }

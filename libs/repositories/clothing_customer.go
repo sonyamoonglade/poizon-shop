@@ -7,6 +7,7 @@ import (
 
 	"domain"
 	"dto"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -73,7 +74,6 @@ func (c *clothingCustomerRepo) Update(ctx context.Context, customerID primitive.
 	}
 
 	if dto.Meta != nil {
-
 		if dto.Meta.NextOrderType != nil {
 			update["meta.nextOrderType"] = dto.Meta.NextOrderType
 		}
@@ -90,6 +90,10 @@ func (c *clothingCustomerRepo) Update(ctx context.Context, customerID primitive.
 
 	if dto.CatalogOffset != nil {
 		update["catalogOffset"] = *dto.CatalogOffset
+	}
+
+	if dto.PromocodeID != nil {
+		update["promocodeId"] = *dto.PromocodeID
 	}
 
 	_, err := c.customers.UpdateByID(ctx, customerID, bson.M{"$set": update})

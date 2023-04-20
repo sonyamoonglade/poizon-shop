@@ -40,3 +40,26 @@ type HouseholdCatalogMsg interface {
 	DeleteByMsgID(ctx context.Context, msgID int) error
 	WipeAll(ctx context.Context, catalogDeleter Deleter) error
 }
+type customerConstraint interface {
+	domain.HouseholdCustomer | domain.ClothingCustomer
+}
+type dtoConstraint interface {
+	dto.UpdateClothingCustomerDTO | dto.UpdateHouseholdCustomerDTO
+}
+type Customer[T customerConstraint, D dtoConstraint] interface {
+	GetByTelegramID(ctx context.Context, telegramID int64) (T, error)
+	All(ctx context.Context) ([]T, error)
+	Save(ctx context.Context, c T) error
+	UpdateState(ctx context.Context, telegramID int64, newState domain.State) error
+	Update(ctx context.Context, customerID primitive.ObjectID, dto D) error
+	Delete(ctx context.Context, customerID primitive.ObjectID) error
+}
+
+type ClothingCustomer interface {
+	Customer[domain.ClothingCustomer, dto.UpdateClothingCustomerDTO]
+	NullifyCatalogOffsets(ctx context.Context) error
+}
+
+type HouseholdCustomer interface {
+	Customer[domain.HouseholdCustomer, dto.UpdateHouseholdCustomerDTO]
+}
