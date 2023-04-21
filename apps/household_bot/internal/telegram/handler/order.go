@@ -206,7 +206,12 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 		})
 	}
 
+	// very clean
 	order := domain.NewHouseholdOrder(customer, address, shortID)
+	if customer.HasPromocode() {
+		promo, _ := customer.GetPromocode()
+		order.UseDiscount(promo.GetDiscount(domain.SourceHousehold))
+	}
 
 	if err := h.orderService.Save(ctx, order); err != nil {
 		return tg_errors.New(tg_errors.Config{

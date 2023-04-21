@@ -169,8 +169,17 @@ func (h *handler) HandleProductByISBN(ctx context.Context, m *tg.Message) error 
 		return nil
 	}
 
+	customer, err := h.customerRepo.GetByTelegramID(ctx, chatID)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "HandleProductByISBN",
+			CausedBy:    "GetByTelegramID",
+		})
+	}
+
 	backButton := buttons.NewBackButton(callback.Menu, nil, nil, nil)
-	err := h.renderProductCard(ctx, chatID, product, buttons.NewISBNProductCardButtons(isbn, backButton))
+	err = h.renderProductCard(ctx, chatID, product, customer, buttons.NewISBNProductCardButtons(isbn, backButton))
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,

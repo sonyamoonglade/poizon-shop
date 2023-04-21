@@ -132,7 +132,6 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 		})
 	}
 
-	p := h.catalogProvider.GetProduct(cTitle, sTitle, productName, inStock)
 	keyboard := buttons.NewProductCardButtons(buttons.ProductCardButtonsArgs{
 		Cb:      callback.AddToCart,
 		CTitle:  cTitle,
@@ -145,8 +144,17 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 			&inStock,
 		),
 	})
+	customer, err := h.customerRepo.GetByTelegramID(ctx, chatID)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "ProductCard",
+			CausedBy:    "GetByTelegramID",
+		})
+	}
 
-	if err := h.renderProductCard(ctx, chatID, p, keyboard); err != nil {
+	product := h.catalogProvider.GetProduct(cTitle, sTitle, productName, inStock)
+	if err := h.renderProductCard(ctx, chatID, product, customer, keyboard); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "ProductCard",
@@ -265,10 +273,20 @@ func (h *handler) fetchProductsAndGetChattable(
 	return c, nil
 }
 
-func (h *handler) renderProductCard(ctx context.Context, chatID int64, p domain.HouseholdProduct,
-	keyboard tg.InlineKeyboardMarkup) error {
+func (h *handler) renderProductCard(
+	ctx context.Context,
+	chatID int64,
+	p domain.HouseholdProduct,
+	customer domain.HouseholdCustomer,
+	keyboard tg.InlineKeyboardMarkup,
+) error {
 	photo := tg.NewPhoto(chatID, tg.FileURL(p.ImageURL))
-	photo.Caption = templates.HouseholdProductCaption(p)
+	if customer.HasPromocode() {
+		promo, _ := customer.GetPromocode()
+		photo.Caption = templates.HouseholdProductCaptionWithDiscount(p, promo.GetDiscount(domain.SourceHousehold))
+	} else {
+		photo.Caption = templates.HouseholdProductCaption(p)
+	}
 	photo.ParseMode = "markdown"
 	photo.ReplyMarkup = keyboard
 	return h.sendWithMessageID(photo, func(msgID int) error {

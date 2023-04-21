@@ -48,7 +48,7 @@ require (
 require (
 	domain v0.0.0
 	dto v0.0.0
-	functools v0.0.0
+	functools v0.0.0 // indirect
 	github.com/klauspost/compress v1.16.5 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.11.0
