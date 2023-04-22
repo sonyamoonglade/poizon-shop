@@ -39,7 +39,7 @@ func (h *handler) sendBulk(cs ...tg.Chattable) error {
 }
 
 func (h *handler) checkRequiredState(ctx context.Context, telegramID int64, want domain.State) (domain.HouseholdCustomer, error) {
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		return domain.HouseholdCustomer{}, tg_errors.New(tg_errors.Config{
 			OriginalErr: err,

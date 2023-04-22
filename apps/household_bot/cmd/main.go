@@ -68,10 +68,16 @@ func run() error {
 	}
 	catalogProvider.Load(initialCatalog)
 
-	orderService := services.NewHouseholdOrderService(repos.HouseholdOrder)
-	catalogMsgService := services.NewHouseholdCatalogMsgService(repos.HouseholdCatalogMsg, mongo)
-	householdCategoryService := services.NewHouseholdCategoryService(repos.HouseholdCategory, mongo)
-	tgHandler := handler.NewHandler(tgBot, repos.Rate, repos, catalogProvider, orderService, catalogMsgService, householdCategoryService)
+	services := services.NewServices(repos, mongo)
+	tgHandler := handler.NewHandler(tgBot,
+		repos.Rate,
+		repos,
+		catalogProvider,
+		services.HouseholdOrder,
+		services.HouseholdCatalogMsg,
+		services.HouseholdCategory,
+		services.HouseholdCustomer,
+	)
 
 	tgRouter := router.NewRouter(
 		tgBot.GetUpdates(),

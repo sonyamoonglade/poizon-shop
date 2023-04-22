@@ -144,7 +144,7 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 			&inStock,
 		),
 	})
-	customer, err := h.customerRepo.GetByTelegramID(ctx, chatID)
+	customer, err := h.customerService.GetByTelegramID(ctx, chatID)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -192,7 +192,7 @@ func (h *handler) ProductsNew(ctx context.Context, chatID int64, msgIDForDeletio
 			CausedBy:    "ParseBool",
 		})
 	}
-	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateDefault); err != nil {
+	if err := h.customerService.UpdateState(ctx, chatID, domain.StateDefault); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "ProductsNew",

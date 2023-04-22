@@ -29,14 +29,15 @@ type Bot interface {
 }
 
 type handler struct {
-	bot               Bot
-	rateProvider      RateProvider
-	catalogProvider   *catalog.Provider
-	customerRepo      repositories.HouseholdCustomer
-	promocodeRepo     repositories.Promocode
+	bot             Bot
+	rateProvider    RateProvider
+	catalogProvider *catalog.Provider
+	promocodeRepo   repositories.Promocode
+
 	categoryService   services.HouseholdCategory
 	orderService      services.Order[domain.HouseholdOrder]
 	catalogMsgService services.HouseholdCatalogMsg
+	customerService   services.HouseholdCustomer
 }
 
 func NewHandler(b Bot,
@@ -46,16 +47,17 @@ func NewHandler(b Bot,
 	orderService services.Order[domain.HouseholdOrder],
 	catalogMsgService services.HouseholdCatalogMsg,
 	categoryService services.HouseholdCategory,
+	customerService services.HouseholdCustomer,
 ) *handler {
 	return &handler{
 		bot:               b,
 		rateProvider:      rp,
 		categoryService:   categoryService,
-		customerRepo:      repos.HouseholdCustomer,
 		promocodeRepo:     repos.Promocode,
 		catalogProvider:   catalogProvider,
 		orderService:      orderService,
 		catalogMsgService: catalogMsgService,
+		customerService:   customerService,
 	}
 }
 

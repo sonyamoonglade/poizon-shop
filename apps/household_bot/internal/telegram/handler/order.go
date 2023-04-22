@@ -25,7 +25,7 @@ func (h *handler) AskForFIO(ctx context.Context, chatID int64) error {
 		})
 	}
 
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -75,7 +75,7 @@ func (h *handler) AskForFIO(ctx context.Context, chatID int64) error {
 		})
 	}
 
-	if err := h.customerRepo.UpdateState(ctx, telegramID, domain.StateWaitingForFIO); err != nil {
+	if err := h.customerService.UpdateState(ctx, telegramID, domain.StateWaitingForFIO); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "askForFIO",
@@ -114,7 +114,7 @@ func (h *handler) HandleFIOInput(ctx context.Context, m *tg.Message) error {
 		State:    &domain.StateWaitingForPhoneNumber,
 		FullName: &fullName,
 	}
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandleFIOInput",
@@ -163,7 +163,7 @@ func (h *handler) HandlePhoneNumberInput(ctx context.Context, m *tg.Message) err
 		State:       &domain.StateWaitingForDeliveryAddress,
 		PhoneNumber: &phoneNumber,
 	}
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandlePhoneNumberInput",
@@ -226,7 +226,7 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 		Cart:  &customer.Cart,
 		State: &domain.StateDefault,
 	}
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandleDeliveryAddressInput",
@@ -261,7 +261,7 @@ func (h *handler) sendOrder(ctx context.Context,
 		Meta:  &domain.Meta{},
 		State: &domain.StateDefault,
 	}
-	if err := h.customerRepo.Update(ctx, order.Customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, order.Customer.CustomerID, updateDTO); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "sendOrder",
@@ -294,7 +294,7 @@ func (h *handler) HandlePayment(ctx context.Context, c *tg.CallbackQuery, args [
 		shortOrderID = args[0]
 	)
 
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,

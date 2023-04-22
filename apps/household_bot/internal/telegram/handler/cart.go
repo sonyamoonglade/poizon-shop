@@ -22,7 +22,7 @@ import (
 func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string, source router.AddToCartSource) error {
 	var telegramID = chatID
 
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -96,7 +96,7 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string, so
 		}
 	}
 
-	err = h.customerRepo.Update(ctx, customer.CustomerID, dto.UpdateHouseholdCustomerDTO{
+	err = h.customerService.Update(ctx, customer.CustomerID, dto.UpdateHouseholdCustomerDTO{
 		Cart: &customer.Cart,
 	})
 	if err != nil {
@@ -112,7 +112,7 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string, so
 
 func (h *handler) GetCart(ctx context.Context, chatID int64) error {
 	var telegramID = chatID
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -129,16 +129,16 @@ func (h *handler) GetCart(ctx context.Context, chatID int64) error {
 func (h *handler) EditCart(ctx context.Context, chatID int64, cartMsgID int) error {
 	var telegramID = chatID
 
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
-		return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
+		return fmt.Errorf("customerService.GetByTelegramID: %w", err)
 	}
 
 	if len(customer.Cart) == 0 {
 		return h.emptyCart(chatID)
 	}
 
-	if err := h.customerRepo.UpdateState(ctx, telegramID, domain.StateWaitingForCartPositionToEdit); err != nil {
+	if err := h.customerService.UpdateState(ctx, telegramID, domain.StateWaitingForCartPositionToEdit); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "EditCart",
@@ -192,7 +192,7 @@ func (h *handler) DeletePositionFromCart(ctx context.Context, chatID int64, butt
 	updateDTO := dto.UpdateHouseholdCustomerDTO{
 		Cart: &customer.Cart,
 	}
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "RemoveCartPosition",
@@ -310,7 +310,7 @@ func (h *handler) handleIfCategoryNotFound(ctx context.Context, chatID int64, cu
 			return cartProduct.ProductID == product.ProductID
 		}))
 
-	err := h.customerRepo.Update(ctx, customer.CustomerID, dto.UpdateHouseholdCustomerDTO{
+	err := h.customerService.Update(ctx, customer.CustomerID, dto.UpdateHouseholdCustomerDTO{
 		Cart: &customer.Cart,
 	})
 	if err != nil {

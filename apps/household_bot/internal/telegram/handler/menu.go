@@ -23,7 +23,7 @@ func (h *handler) Start(ctx context.Context, m *tg.Message) error {
 		telegramID = m.Chat.ID
 		username   = domain.MakeUsername(m.From.String())
 	)
-	_, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	_, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		if !errors.Is(err, domain.ErrCustomerNotFound) {
 			return tg_errors.New(tg_errors.Config{
@@ -34,7 +34,7 @@ func (h *handler) Start(ctx context.Context, m *tg.Message) error {
 
 		}
 
-		err := h.customerRepo.Save(ctx, domain.NewHouseholdCustomer(telegramID, username))
+		err := h.customerService.Save(ctx, domain.NewHouseholdCustomer(telegramID, username))
 		if err != nil {
 			return tg_errors.New(tg_errors.Config{
 				OriginalErr: err,
@@ -52,7 +52,7 @@ func (h *handler) Menu(ctx context.Context, chatID int64, deleteMsgID *int) erro
 			return err
 		}
 	}
-	customer, err := h.customerRepo.GetByTelegramID(ctx, chatID)
+	customer, err := h.customerService.GetByTelegramID(ctx, chatID)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -60,7 +60,7 @@ func (h *handler) Menu(ctx context.Context, chatID int64, deleteMsgID *int) erro
 			CausedBy:    "GetByTelegramID",
 		})
 	}
-	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateDefault); err != nil {
+	if err := h.customerService.UpdateState(ctx, chatID, domain.StateDefault); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "Menu",
@@ -107,7 +107,7 @@ func (h *handler) Catalog(ctx context.Context, chatID int64, prevMsgID *int) err
 func (h *handler) MyOrders(ctx context.Context, chatID int64) error {
 	var telegramID = chatID
 
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		return err
 	}
@@ -138,7 +138,7 @@ func (h *handler) MyOrders(ctx context.Context, chatID int64) error {
 }
 
 func (h *handler) AskForISBN(ctx context.Context, chatID int64) error {
-	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateWaitingForISBN); err != nil {
+	if err := h.customerService.UpdateState(ctx, chatID, domain.StateWaitingForISBN); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "AskForISBN",
@@ -169,7 +169,7 @@ func (h *handler) HandleProductByISBN(ctx context.Context, m *tg.Message) error 
 		return nil
 	}
 
-	customer, err := h.customerRepo.GetByTelegramID(ctx, chatID)
+	customer, err := h.customerService.GetByTelegramID(ctx, chatID)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -191,7 +191,7 @@ func (h *handler) HandleProductByISBN(ctx context.Context, m *tg.Message) error 
 }
 
 func (h *handler) AskForPromocode(ctx context.Context, chatID int64) error {
-	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateWaitingForPromocode); err != nil {
+	if err := h.customerService.UpdateState(ctx, chatID, domain.StateWaitingForPromocode); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "AskForPromocode",
@@ -236,7 +236,7 @@ func (h *handler) HandlePromocodeInput(ctx context.Context, m *tg.Message) error
 
 	customer.UsePromocode(promo)
 
-	err = h.customerRepo.Update(ctx, customer.CustomerID, dto.UpdateHouseholdCustomerDTO{
+	err = h.customerService.Update(ctx, customer.CustomerID, dto.UpdateHouseholdCustomerDTO{
 		PromocodeID: customer.PromocodeID,
 	})
 	if err != nil {
