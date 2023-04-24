@@ -30,6 +30,19 @@ func (c *clothingCustomerRepo) Save(ctx context.Context, customer domain.Clothin
 	return nil
 }
 
+func (c *clothingCustomerRepo) GetAllByPromocodeID(ctx context.Context, promocodeID primitive.ObjectID) ([]domain.ClothingCustomer, error) {
+	cur, err := c.customers.Find(ctx, bson.M{"promocodeId": promocodeID})
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, domain.ErrNoCustomers
+		}
+		return nil, err
+	}
+
+	var customers []domain.ClothingCustomer
+	return customers, cur.All(ctx, &customers)
+}
+
 func (c *clothingCustomerRepo) Delete(ctx context.Context, customerID primitive.ObjectID) error {
 	if _, err := c.customers.DeleteOne(ctx, bson.M{"_id": customerID}); err != nil {
 		return err

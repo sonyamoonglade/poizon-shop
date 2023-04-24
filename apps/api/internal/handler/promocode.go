@@ -44,6 +44,16 @@ func (h *Handler) DeletePromocode(c *fiber.Ctx) error {
 	if err := h.repositories.Promocode.Delete(c.Context(), promoId); err != nil {
 		return fmt.Errorf("delete: %w", err)
 	}
+	// TODO: for each customer that owns it - delete
+	hCustomers, err := h.services.HouseholdCustomer.GetAllByPromocodeID(c.Context(), promoId)
+	if err != nil {
+		return fmt.Errorf("get all by promoid: %w", err)
+	}
+	cCustomers, err := h.services.ClothingCustomer.GetAllByPromocodeID(c.Context(), promoId)
+	if err != nil {
+		return fmt.Errorf("get all by promoid: %w", err)
+	}
+	_, _ = cCustomers, hCustomers
 	return c.SendStatus(http.StatusOK)
 }
 

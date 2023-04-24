@@ -7,37 +7,20 @@ import (
 	"time"
 
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
-	"github.com/stretchr/testify/mock"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/suite"
 	"household_bot/internal/catalog"
 	"household_bot/internal/telegram/handler"
 	"household_bot/internal/telegram/router"
+	mock_handler "household_bot/mocks"
 	"logger"
 	"onlineshop/database"
 	"repositories"
 	"services"
+	"usecase"
 )
 
 var mongoURI, dbName string
-
-type MockBot struct {
-	mock.Mock
-}
-
-func (mb *MockBot) CleanRequest(c tg.Chattable) error {
-	args := mb.Called(c)
-	return args.Error(0)
-}
-
-func (mb *MockBot) SendMediaGroup(c tg.MediaGroupConfig) ([]tg.Message, error) {
-	args := mb.Called(c)
-	return args.Get(0).([]tg.Message), args.Error(1)
-}
-
-func (mb *MockBot) Send(c tg.Chattable) (tg.Message, error) {
-	args := mb.Called(c)
-	return args.Get(0).(tg.Message), args.Error(1)
-}
 
 func init() {
 	mongoURI = os.Getenv("MONGO_URI")
@@ -47,12 +30,14 @@ func init() {
 type AppTestSuite struct {
 	suite.Suite
 
-	db           *database.Mongo
-	tgrouter     *router.Router
-	tghandler    router.RouteHandler
-	repositories *repositories.Repositories
-	mockBot      *MockBot
-	updatesChan  <-chan tg.Update
+	db               *database.Mongo
+	repositories     *repositories.Repositories
+	svc              *services.Services
+	makeOrderUsecase *usecase.HouseholdMakeOrder
+
+	mockBot     *mock_handler.MockBot
+	tghandler   router.RouteHandler
+	updatesChan <-chan tg.Update
 }
 
 func TestAPISuite(t *testing.T) {
@@ -88,24 +73,49 @@ func (s *AppTestSuite) setupDeps() {
 
 	catalogProvider := catalog.NewProvider()
 	repos := repositories.NewRepositories(mongo, nil, nil)
-	orderService := services.NewHouseholdOrderService(repos.HouseholdOrder)
 
 	updates := make(chan tg.Update)
-	mockBot := new(MockBot)
-	catalogMsgService := services.NewHouseholdCatalogMsgService(repos.HouseholdCatalogMsg, mongo)
-	categoryService := services.NewHouseholdCategoryService(repos.HouseholdCategory, mongo)
-	tgHandler := handler.NewHandler(mockBot, repos.Rate, repos, catalogProvider, orderService, catalogMsgService, categoryService)
 
-	tgRouter := router.NewRouter(updates, tgHandler, repos.ClothingCustomer, time.Second*5)
+	ctrl := gomock.NewController(s.T())
+	mockBot := mock_handler.NewMockBot(ctrl)
 
-	mockBot.On("Send", mock.Anything).Return(tg.Message{}, nil)
+	svc := services.NewServices(repos, mongo)
+
+	makeOrderUsecase := usecase.NewHouseholdMakeOrderUsecase(repos.Promocode, svc.HouseholdOrder, svc.HouseholdCustomer)
 
 	s.Require().NoError(repos.Rate.UpdateRate(context.Background(), 11.8))
 
+	tgHandler := handler.NewHandlerWithConstructor(handler.Constructor{
+		Bot:               mockBot,
+		RateProvider:      repos.Rate,
+		PromocodeRepo:     repos.Promocode,
+		CatalogProvider:   catalogProvider,
+		OrderService:      svc.HouseholdOrder,
+		CategoryService:   svc.HouseholdCategory,
+		CatalogMsgService: svc.HouseholdCatalogMsg,
+		CustomerService:   svc.HouseholdCustomer,
+		MakeOrderUsecase:  makeOrderUsecase,
+	})
+
 	s.db = mongo
 	s.updatesChan = updates
-	s.tgrouter = tgRouter
 	s.tghandler = tgHandler
 	s.repositories = &repos
+	s.svc = &svc
 	s.mockBot = mockBot
+	s.makeOrderUsecase = makeOrderUsecase
+}
+
+func (s *AppTestSuite) replaceBotInHandler(bot handler.Bot) {
+	s.tghandler = handler.NewHandlerWithConstructor(handler.Constructor{
+		Bot:               bot,
+		RateProvider:      s.repositories.Rate,
+		MakeOrderUsecase:  s.makeOrderUsecase,
+		PromocodeRepo:     s.repositories.Promocode,
+		CatalogProvider:   catalog.NewProvider(),
+		OrderService:      s.svc.HouseholdOrder,
+		CategoryService:   s.svc.HouseholdCategory,
+		CatalogMsgService: s.svc.HouseholdCatalogMsg,
+		CustomerService:   s.svc.HouseholdCustomer,
+	})
 }

@@ -86,15 +86,15 @@ func (c *ClothingCustomer) NullifyCatalogOffset() {
 	c.CatalogOffset = 0
 }
 
-func (c *ClothingCustomer) SetPromocode(p Promocode) ClothingCustomer {
+func (c *ClothingCustomer) SetPromocode(p Promocode) *ClothingCustomer {
 	// Joined field
 	c.Promocode = &p
-	return *c
+	return c
 }
-func (c *ClothingCustomer) UsePromocode(p Promocode) ClothingCustomer {
+func (c *ClothingCustomer) UsePromocode(p Promocode) *ClothingCustomer {
 	c.Promocode = &p
 	c.PromocodeID = &p.PromocodeID
-	return *c
+	return c
 }
 
 func (c *ClothingCustomer) HasPromocode() bool {
@@ -106,4 +106,11 @@ func (c *ClothingCustomer) GetPromocode() (*Promocode, bool) {
 		return c.Promocode, true
 	}
 	return nil, false
+}
+
+func (c *ClothingCustomer) MustGetPromocode() Promocode {
+	if c.HasPromocode() {
+		return *c.Promocode
+	}
+	return Promocode{}
 }

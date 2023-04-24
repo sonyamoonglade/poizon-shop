@@ -10,6 +10,7 @@ import (
 	"household_bot/pkg/telegram"
 	"repositories"
 	"services"
+	"usecase"
 
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -38,6 +39,8 @@ type handler struct {
 	orderService      services.Order[domain.HouseholdOrder]
 	catalogMsgService services.HouseholdCatalogMsg
 	customerService   services.HouseholdCustomer
+
+	makeOrderUsecase *usecase.HouseholdMakeOrder
 }
 
 func NewHandler(b Bot,
@@ -48,6 +51,7 @@ func NewHandler(b Bot,
 	catalogMsgService services.HouseholdCatalogMsg,
 	categoryService services.HouseholdCategory,
 	customerService services.HouseholdCustomer,
+	makeOrderUsecase *usecase.HouseholdMakeOrder,
 ) *handler {
 	return &handler{
 		bot:               b,
@@ -58,6 +62,33 @@ func NewHandler(b Bot,
 		orderService:      orderService,
 		catalogMsgService: catalogMsgService,
 		customerService:   customerService,
+		makeOrderUsecase:  makeOrderUsecase,
+	}
+}
+
+type Constructor struct {
+	Bot               Bot
+	RateProvider      RateProvider
+	PromocodeRepo     repositories.Promocode
+	CatalogProvider   *catalog.Provider
+	OrderService      services.Order[domain.HouseholdOrder]
+	CategoryService   services.HouseholdCategory
+	CatalogMsgService services.HouseholdCatalogMsg
+	CustomerService   services.HouseholdCustomer
+	MakeOrderUsecase  *usecase.HouseholdMakeOrder
+}
+
+func NewHandlerWithConstructor(c Constructor) *handler {
+	return &handler{
+		bot:               c.Bot,
+		rateProvider:      c.RateProvider,
+		categoryService:   c.CategoryService,
+		promocodeRepo:     c.PromocodeRepo,
+		catalogProvider:   c.CatalogProvider,
+		orderService:      c.OrderService,
+		catalogMsgService: c.CatalogMsgService,
+		customerService:   c.CustomerService,
+		makeOrderUsecase:  c.MakeOrderUsecase,
 	}
 }
 

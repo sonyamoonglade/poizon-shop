@@ -5,6 +5,9 @@ type ClothingCart []ClothingPosition
 func (c *ClothingCart) Add(p ClothingPosition) {
 	*c = append(*c, p)
 }
+func (c *ClothingCart) Size() int {
+	return len(*c)
+}
 
 func (c *ClothingCart) Remove(positionID string) {
 	for i, p := range *c {

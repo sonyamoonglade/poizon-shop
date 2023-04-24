@@ -87,7 +87,7 @@ type Source struct {
 var (
 	c               = "clothing"
 	h               = "household"
-	SourceNone      = Source{"None"}
+	SourceNone      = Source{"none"}
 	SourceClothing  = Source{c}
 	SourceHousehold = Source{h}
 )

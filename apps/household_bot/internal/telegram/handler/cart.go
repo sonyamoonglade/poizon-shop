@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"household_bot/internal/telegram/callback"
 	"household_bot/internal/telegram/router"
 
 	fn "github.com/sonyamoonglade/go_func"
@@ -19,7 +20,7 @@ import (
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string, source router.AddToCartSource) error {
+func (h *handler) AddToCart(ctx context.Context, chatID int64, prevMsgID int, args []string, source router.AddToCartSource) error {
 	var telegramID = chatID
 
 	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
@@ -55,14 +56,7 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string, so
 	}
 
 	// Category that customer is adding product with
-	currentCategory, err := h.categoryService.GetByID(ctx, currentProduct.CategoryID)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "AddToCart",
-			CausedBy:    "GetByID",
-		})
-	}
+	currentCategory, _ := h.catalogProvider.GetCategoryByID(currentProduct.CategoryID)
 
 	firstProduct, exists := customer.Cart.First()
 
@@ -107,7 +101,43 @@ func (h *handler) AddToCart(ctx context.Context, chatID int64, args []string, so
 		})
 	}
 
-	return h.sendMessage(chatID, templates.PositionAdded(currentProduct.Name))
+	var (
+		cTitle,
+		sTitle,
+		inStockStr,
+		pName = args[0], args[1], args[2], args[3]
+	)
+	inStock, err := strconv.ParseBool(inStockStr)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AddToCart",
+			CausedBy:    "ParseBool",
+		})
+	}
+	currentQuantity := fn.Reduce(func(acc int, el domain.HouseholdProduct, _ int) int {
+		if pName == el.Name {
+			acc += 1
+		}
+		return acc
+	}, customer.Cart.Slice(), 0)
+	keyboard := buttons.NewProductCardButtons(buttons.ProductCardButtonsArgs{
+		Cb:       callback.AddToCart,
+		CTitle:   cTitle,
+		STitle:   sTitle,
+		PName:    pName,
+		InStock:  inStock,
+		Quantity: currentQuantity,
+		Back: buttons.NewBackButton(callback.FromProductCardToProducts,
+			&cTitle,
+			&sTitle,
+			&inStock,
+		),
+	})
+
+	editMsg := tg.NewEditMessageReplyMarkup(chatID, prevMsgID, keyboard)
+	return h.cleanSend(editMsg)
+	//return h.sendWithKeyboard(chatID, templates.PositionAdded(currentProduct.Name), buttons.GotoCart)
 }
 
 func (h *handler) GetCart(ctx context.Context, chatID int64) error {
@@ -121,9 +151,26 @@ func (h *handler) GetCart(ctx context.Context, chatID int64) error {
 		})
 	}
 	if customer.Cart.IsEmpty() {
-		return h.sendMessage(chatID, "empty cart")
+		return h.sendWithKeyboard(chatID, "Твоя корзина пуста!\n\nДобавим что-нибудь?", buttons.AddPosition)
 	}
-	return h.sendWithKeyboard(chatID, templates.RenderCart(customer.Cart), buttons.CartPreview)
+
+	firstProduct, _ := customer.Cart.First()
+	category, _ := h.catalogProvider.GetCategoryByID(firstProduct.CategoryID)
+
+	if customer.HasPromocode() {
+		promo := customer.MustGetPromocode()
+		return h.sendWithKeyboard(
+			chatID,
+			templates.RenderCartWithDiscount(
+				customer.Cart,
+				promo.GetHouseholdDiscount(),
+				category.InStock,
+			),
+			buttons.CartPreview,
+		)
+	}
+
+	return h.sendWithKeyboard(chatID, templates.RenderCart(customer.Cart, category.InStock), buttons.CartPreview)
 }
 
 func (h *handler) EditCart(ctx context.Context, chatID int64, cartMsgID int) error {
@@ -225,7 +272,10 @@ func (h *handler) DeletePositionFromCart(ctx context.Context, chatID int64, butt
 	}
 
 	// Edit original preview cart message and edit buttons
-	cartMsg := tg.NewEditMessageText(chatID, cartMsgID, templates.RenderCart(customer.Cart))
+	firstProduct, _ := customer.Cart.First()
+	category, _ := h.catalogProvider.GetCategoryByID(firstProduct.CategoryID)
+
+	cartMsg := tg.NewEditMessageText(chatID, cartMsgID, templates.RenderCart(customer.Cart, category.InStock))
 	cartMsg.ReplyMarkup = &buttons.CartPreview
 
 	updateButtons := tg.NewEditMessageReplyMarkup(chatID,
@@ -248,7 +298,7 @@ func (h *handler) DeletePositionFromCart(ctx context.Context, chatID int64, butt
 }
 
 func (h *handler) emptyCart(chatID int64) error {
-	return h.sendWithKeyboard(chatID, "Ваша корзина пуста!", buttons.AddPosition)
+	return h.sendWithKeyboard(chatID, "Твоя корзина пуста!", buttons.AddPosition)
 }
 
 func (h *handler) addToCartFromCatalog(ctx context.Context, args []string) (domain.HouseholdProduct, error) {
@@ -262,24 +312,12 @@ func (h *handler) addToCartFromCatalog(ctx context.Context, args []string) (doma
 	if err != nil {
 		return domain.HouseholdProduct{}, tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
-			Handler:     "AddToCart",
+			Handler:     "addToCartFromCatalog",
 			CausedBy:    "ParseBool",
 		})
 	}
 
-	products, err := h.categoryService.GetProductsByCategoryAndSubcategory(ctx, cTitle, sTitle, inStock)
-	if err != nil {
-		return domain.HouseholdProduct{}, tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "AddToCart",
-			CausedBy:    "GetProductsByCategoryAndSubcategory",
-		})
-	}
-	return fn.
-		Of(products).
-		Find(func(p domain.HouseholdProduct, _ int) bool {
-			return p.Name == pName
-		}), nil
+	return h.catalogProvider.GetProductByCategoryAndSubcategory(cTitle, sTitle, pName, inStock), nil
 }
 
 func (h *handler) addToCartFromISBNSearch(args []string) (domain.HouseholdProduct, error) {

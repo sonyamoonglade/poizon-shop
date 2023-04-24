@@ -2,11 +2,19 @@ package domain
 
 type HouseholdCart []HouseholdProduct
 
+func NewHouseholdCart() HouseholdCart {
+	return HouseholdCart(nil)
+}
+
 func (c *HouseholdCart) First() (HouseholdProduct, bool) {
 	if len(*c) == 0 {
 		return HouseholdProduct{}, false
 	}
 	return (*c)[0], true
+}
+
+func (c *HouseholdCart) Size() int {
+	return len(*c)
 }
 
 func (c *HouseholdCart) Clear() {

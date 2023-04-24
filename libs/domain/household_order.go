@@ -18,6 +18,7 @@ type HouseholdOrder struct {
 	DiscountedAmount uint32             `json:"discountedAmount" bson:"discountedAmount"`
 	DeliveryAddress  string             `json:"deliveryAddress" bson:"deliveryAddress"`
 	Comment          *string            `json:"comment" bson:"comment"`
+	InStock          bool               `json:"inStock" bson:"inStock"`
 	Status           Status             `json:"status" bson:"status"`
 	Source           Source             `json:"source" bson:"source"`
 	CreatedAt        time.Time          `json:"createdAt" bson:"createdAt"`
@@ -29,6 +30,7 @@ func NewHouseholdOrder(
 	customer HouseholdCustomer,
 	deliveryAddress string,
 	shortID string,
+	inStock bool,
 ) HouseholdOrder {
 
 	amountRub := functools.Reduce(func(acc uint32, cartItem HouseholdProduct) uint32 {
@@ -37,14 +39,16 @@ func NewHouseholdOrder(
 	}, customer.Cart, 0)
 
 	return HouseholdOrder{
-		Customer:        customer,
-		ShortID:         shortID,
-		Cart:            customer.Cart,
-		AmountRUB:       amountRub,
-		DeliveryAddress: deliveryAddress,
-		Status:          StatusNotApproved,
-		Source:          SourceHousehold,
-		CreatedAt:       time.Now().UTC(),
+		Customer:         customer,
+		ShortID:          shortID,
+		Cart:             customer.Cart,
+		AmountRUB:        amountRub,
+		DiscountedAmount: amountRub,
+		DeliveryAddress:  deliveryAddress,
+		Status:           StatusNotApproved,
+		Source:           SourceHousehold,
+		InStock:          inStock,
+		CreatedAt:        time.Now().UTC(),
 	}
 }
 

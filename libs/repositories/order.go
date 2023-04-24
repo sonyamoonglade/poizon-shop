@@ -110,8 +110,8 @@ func (o *orderRepo[T]) GetByShortID(ctx context.Context, shortID string) (T, err
 	return ord, nil
 }
 
-func (o *orderRepo[T]) GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID, source domain.Source) ([]T, error) {
-	filter := bson.M{"customer._id": customerID, "source": source}
+func (o *orderRepo[T]) GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID) ([]T, error) {
+	filter := bson.M{"customer._id": customerID}
 	res, err := o.orders.Find(ctx, filter)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -124,6 +124,20 @@ func (o *orderRepo[T]) GetAllForCustomer(ctx context.Context, customerID primiti
 		return nil, err
 	}
 	return orders, nil
+}
+
+func (o *orderRepo[T]) GetLast(ctx context.Context, customerID primitive.ObjectID) ([]T, error) {
+	opts := options.Find()
+	opts.SetSort(bson.M{"createdAt": -1}).SetLimit(1)
+	cur, err := o.orders.Find(ctx, bson.M{"customer._id": customerID}, opts)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, domain.ErrOrderNotFound
+		}
+		return nil, err
+	}
+	var orders []T
+	return orders, cur.All(ctx, &orders)
 }
 
 func (o *orderRepo[T]) findOneAndUpdate(ctx context.Context, filter, update any) (T, error) {

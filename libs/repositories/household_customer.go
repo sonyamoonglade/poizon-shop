@@ -92,10 +92,6 @@ func (h *householdCustomerRepo) Update(ctx context.Context, customerID primitive
 		update["fullName"] = *dto.FullName
 	}
 
-	if dto.Meta != nil {
-		update["meta"] = dto.Meta
-	}
-
 	if dto.PromocodeID != nil {
 		update["promocodeId"] = *dto.PromocodeID
 	}
@@ -110,6 +106,19 @@ func (h *householdCustomerRepo) Delete(ctx context.Context, customerID primitive
 	}
 	return nil
 
+}
+
+func (h *householdCustomerRepo) GetAllByPromocodeID(ctx context.Context, promocodeID primitive.ObjectID) ([]domain.ClothingCustomer, error) {
+	cur, err := h.customers.Find(ctx, bson.M{"promocodeId": promocodeID})
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, domain.ErrNoCustomers
+		}
+		return nil, err
+	}
+
+	var customers []domain.ClothingCustomer
+	return customers, cur.All(ctx, &customers)
 }
 
 func (h *householdCustomerRepo) GetState(ctx context.Context, telegramID int64) (domain.State, error) {

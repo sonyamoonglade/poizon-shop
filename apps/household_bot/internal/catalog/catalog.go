@@ -1,10 +1,10 @@
 package catalog
 
 import (
-	"fmt"
 	"sync"
 
 	"domain"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"repositories"
 
 	fn "github.com/sonyamoonglade/go_func"
@@ -32,11 +32,41 @@ func (p *Provider) Load(items []domain.HouseholdCategory) {
 	}
 }
 
+func (p *Provider) GetProductByCategoryAndSubcategory(cTitle, sTitle, pName string, inStock bool) domain.HouseholdProduct {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	for _, c := range p.items {
+		if c.Active && cTitle == c.Title && c.InStock == inStock {
+			for _, s := range c.Subcategories {
+				if s.Title == sTitle {
+					for _, p := range s.Products {
+						if p.Name == pName {
+							return p
+						}
+					}
+				}
+			}
+		}
+	}
+	return domain.HouseholdProduct{}
+}
+
 func (p *Provider) GetCategory(title string, inStock bool) (domain.HouseholdCategory, bool) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	for _, c := range p.items {
 		if c.Title == title && c.InStock == inStock {
+			return c, true
+		}
+	}
+	return domain.HouseholdCategory{}, false
+}
+
+func (p *Provider) GetCategoryByID(categoryID primitive.ObjectID) (domain.HouseholdCategory, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	for _, c := range p.items {
+		if c.CategoryID == categoryID {
 			return c, true
 		}
 	}
@@ -142,7 +172,6 @@ func (p *Provider) GetProduct(cTitle, sTitle, pName string, inStock bool) domain
 
 func (p *Provider) GetProductByISBN(isbn string) (domain.HouseholdProduct, bool) {
 	p.mu.RLock()
-	fmt.Println(isbn)
 	defer p.mu.RUnlock()
 	for _, c := range p.items {
 		for _, s := range c.Subcategories {

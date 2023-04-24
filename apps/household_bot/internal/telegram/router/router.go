@@ -47,7 +47,7 @@ type RouteHandler interface {
 	ProductsNew(ctx context.Context, chatID int64, msgIDForDeletion int, args []string) error
 	Products(ctx context.Context, chatID int64, prevMsgID int, args []string) error
 	ProductCard(ctx context.Context, chatID int64, prevMsgID int, args []string) error
-	AddToCart(ctx context.Context, chatID int64, args []string, source AddToCartSource) error
+	AddToCart(ctx context.Context, chatID int64, prevMsgID int, args []string, source AddToCartSource) error
 
 	AskForFIO(ctx context.Context, chatID int64) error
 	HandleFIOInput(ctx context.Context, m *tg.Message) error
@@ -87,16 +87,15 @@ func NewRouter(updates <-chan tg.Update, h RouteHandler, s StateProvider, timeou
 	}
 }
 
-func (r *Router) Bootstrap() error {
+func (r *Router) Bootstrap() {
 	logger.Get().Info("router is listening for updates")
 	for {
 		select {
 		case <-r.shutdown:
 			logger.Get().Info("router is shutting down")
-			return nil
 		case update, ok := <-r.updates:
 			if !ok {
-				return nil
+				return
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
@@ -234,9 +233,9 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 	case callback.SelectProduct:
 		return r.handler.ProductCard(ctx, chatID, msgID, parsedArgs)
 	case callback.AddToCart:
-		return r.handler.AddToCart(ctx, chatID, parsedArgs, SourceCatalog)
+		return r.handler.AddToCart(ctx, chatID, msgID, parsedArgs, SourceCatalog)
 	case callback.AddToCartByISBN:
-		return r.handler.AddToCart(ctx, chatID, parsedArgs, SourceISBNSearch)
+		return r.handler.AddToCart(ctx, chatID, msgID, parsedArgs, SourceISBNSearch)
 	case callback.EditCart:
 		return r.handler.EditCart(ctx, chatID, msgID)
 	case callback.DeletePositionFromCart:

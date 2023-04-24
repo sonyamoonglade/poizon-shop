@@ -66,6 +66,9 @@ func (p promocodeRepo) Update(ctx context.Context, promocodeID primitive.ObjectI
 	if dto.Discounts != nil {
 		update["discounts"] = *dto.Discounts
 	}
+	if dto.Counters != nil {
+		update["counters"] = *dto.Counters
+	}
 	_, err := p.promocodes.UpdateOne(ctx, bson.M{"_id": promocodeID}, bson.M{"$set": update})
 	return err
 }

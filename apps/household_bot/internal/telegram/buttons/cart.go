@@ -10,19 +10,8 @@ import (
 
 var (
 	CartPreview = cartPreviewButtons()
+	GotoCart    = gotoCart()
 )
-
-func cartPreviewButtons() tg.InlineKeyboardMarkup {
-	return tg.NewInlineKeyboardMarkup(
-		tg.NewInlineKeyboardRow(
-			tg.NewInlineKeyboardButtonData("Оформить заказ", callback.Inject(callback.MakeOrder)),
-		),
-		tg.NewInlineKeyboardRow(
-			tg.NewInlineKeyboardButtonData("Редактировать корзину", callback.Inject(callback.EditCart)),
-			tg.NewInlineKeyboardButtonData("Добавить позицию", callback.Inject(callback.Catalog)),
-		),
-	)
-}
 
 func NewEditCartButtons(cartSize int, msgID int) tg.InlineKeyboardMarkup {
 	keyboard := make([][]tg.InlineKeyboardButton, 0)
@@ -42,4 +31,24 @@ func NewEditCartButtons(cartSize int, msgID int) tg.InlineKeyboardMarkup {
 	}
 
 	return tg.NewInlineKeyboardMarkup(keyboard...)
+}
+
+func gotoCart() tg.InlineKeyboardMarkup {
+	return tg.NewInlineKeyboardMarkup(
+		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Посмотреть корзину", callback.Inject(callback.MyCart)),
+		),
+	)
+}
+
+func cartPreviewButtons() tg.InlineKeyboardMarkup {
+	return tg.NewInlineKeyboardMarkup(
+		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Оформить заказ", callback.Inject(callback.MakeOrder)),
+		),
+		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Редактировать корзину", callback.Inject(callback.EditCart)),
+			tg.NewInlineKeyboardButtonData("Добавить позицию", callback.Inject(callback.Catalog)),
+		),
+	)
 }

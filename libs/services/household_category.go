@@ -28,12 +28,12 @@ func NewHouseholdCategoryService(repo repositories.HouseholdCategory, t database
 func (h *householdCategoryService) New(ctx context.Context, title string, inStock bool) error {
 	category := domain.NewHouseholdCategory(title, inStock)
 	return h.transactor.WithTransaction(ctx, func(tx context.Context) error {
-		rank, err := h.repo.GetTopRank(ctx, inStock)
+		rank, err := h.repo.GetTopRank(tx, inStock)
 		if err != nil {
 			return fmt.Errorf("get top rank: %w", err)
 		}
 		category.SetRank(rank)
-		if err := h.repo.Save(ctx, category); err != nil {
+		if err := h.repo.Save(tx, category); err != nil {
 			return fmt.Errorf("new: %w", err)
 		}
 		return nil
@@ -42,11 +42,11 @@ func (h *householdCategoryService) New(ctx context.Context, title string, inStoc
 
 func (h *householdCategoryService) Delete(ctx context.Context, categoryID primitive.ObjectID) error {
 	return h.transactor.WithTransaction(ctx, func(tx context.Context) error {
-		category, err := h.repo.GetByID(ctx, categoryID)
+		category, err := h.repo.GetByID(tx, categoryID)
 		if err != nil {
 			return fmt.Errorf("get by id: %w", err)
 		}
-		currentCategories, err := h.repo.GetAllByInStock(ctx, category.InStock)
+		currentCategories, err := h.repo.GetAllByInStock(tx, category.InStock)
 		if err != nil {
 			return fmt.Errorf("get all: %w", err)
 		}
@@ -72,12 +72,18 @@ func (h *householdCategoryService) GetByID(ctx context.Context, categoryID primi
 // tx - transaction
 func (h *householdCategoryService) fixCategoriesRanks(tx context.Context, categoryID primitive.ObjectID, categories []domain.HouseholdCategory) error {
 	categoriesIter := fn.Of(categories)
-	idx := categoriesIter.IndexOf(func(c domain.HouseholdCategory) bool {
-		return c.CategoryID == categoryID
-	})
-	categories = categoriesIter.Filter(func(c domain.HouseholdCategory) bool {
-		return c.CategoryID != categoryID
-	}).Result
+	idx := categoriesIter.
+		IndexOf(func(c domain.HouseholdCategory) bool {
+			return c.CategoryID == categoryID
+		})
+	categories = categoriesIter.
+		Filter(func(c domain.HouseholdCategory) bool {
+			return c.CategoryID != categoryID
+		}).Result
+
+	if err := h.repo.Delete(tx, categoryID); err != nil {
+		return fmt.Errorf("delete: %w", err)
+	}
 
 	for i := idx; i < len(categories); i++ {
 		categories[i].Rank--
@@ -87,10 +93,6 @@ func (h *householdCategoryService) fixCategoriesRanks(tx context.Context, catego
 		if err != nil {
 			return fmt.Errorf("update: %w", err)
 		}
-	}
-
-	if err := h.repo.Delete(tx, categoryID); err != nil {
-		return fmt.Errorf("delete: %w", err)
 	}
 
 	return nil

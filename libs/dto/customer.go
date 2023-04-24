@@ -23,7 +23,6 @@ type UpdateHouseholdCustomerDTO struct {
 	Username    *string
 	FullName    *string
 	PhoneNumber *string
-	Meta        *domain.Meta
 	Cart        *domain.HouseholdCart
 	State       *domain.State
 	PromocodeID *primitive.ObjectID

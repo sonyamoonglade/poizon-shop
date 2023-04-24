@@ -112,7 +112,7 @@ func (h *handler) MyOrders(ctx context.Context, chatID int64) error {
 		return err
 	}
 
-	orders, err := h.orderService.GetAllForCustomer(ctx, customer.CustomerID, domain.SourceHousehold)
+	orders, err := h.orderService.GetAllForCustomer(ctx, customer.CustomerID)
 	if err != nil {
 		if errors.Is(err, domain.ErrNoOrders) {
 			return h.sendMessage(chatID, "У тебя еще нет заказов 🦕")
@@ -179,7 +179,14 @@ func (h *handler) HandleProductByISBN(ctx context.Context, m *tg.Message) error 
 	}
 
 	backButton := buttons.NewBackButton(callback.Menu, nil, nil, nil)
-	err = h.renderProductCard(ctx, chatID, product, customer, buttons.NewISBNProductCardButtons(isbn, backButton))
+	category, _ := h.catalogProvider.GetCategoryByID(product.CategoryID)
+	err = h.renderProductCard(
+		ctx,
+		chatID,
+		product,
+		customer,
+		buttons.NewISBNProductCardButtons(isbn, backButton), category.InStock,
+	)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -191,6 +198,17 @@ func (h *handler) HandleProductByISBN(ctx context.Context, m *tg.Message) error 
 }
 
 func (h *handler) AskForPromocode(ctx context.Context, chatID int64) error {
+	customer, err := h.customerService.GetByTelegramID(ctx, chatID)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AskForPromocode",
+			CausedBy:    "GetByTelegramID",
+		})
+	}
+	if customer.HasPromocode() {
+		return h.sendMessage(chatID, "Ты уже вводил промокод!")
+	}
 	if err := h.customerService.UpdateState(ctx, chatID, domain.StateWaitingForPromocode); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -231,7 +249,7 @@ func (h *handler) HandlePromocodeInput(ctx context.Context, m *tg.Message) error
 	}
 
 	if customer.HasPromocode() {
-		return h.sendMessage(chatID, "Вы уже вводили промокод!")
+		return h.sendMessage(chatID, "Ты уже вводил промокод!")
 	}
 
 	customer.UsePromocode(promo)
@@ -247,5 +265,5 @@ func (h *handler) HandlePromocodeInput(ctx context.Context, m *tg.Message) error
 		})
 	}
 
-	return h.sendMessage(chatID, templates.PromocodeUseSuccess(promo.ShortID, promo.GetDiscount(domain.SourceHousehold)))
+	return h.sendMessage(chatID, templates.PromocodeUseSuccess(promo.ShortID, promo.GetHouseholdDiscount()))
 }

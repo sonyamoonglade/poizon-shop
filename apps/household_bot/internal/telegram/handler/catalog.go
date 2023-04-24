@@ -20,7 +20,7 @@ import (
 func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, inStock bool) error {
 	categoryTitles := h.catalogProvider.GetActiveCategoryTitlesByInStock(inStock)
 	if categoryTitles == nil {
-		return h.sendMessage(chatID, "no categories")
+		return h.sendMessage(chatID, "Категории отсутствуют")
 	}
 
 	// To prev step, reInject inStock
@@ -132,18 +132,6 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 		})
 	}
 
-	keyboard := buttons.NewProductCardButtons(buttons.ProductCardButtonsArgs{
-		Cb:      callback.AddToCart,
-		CTitle:  cTitle,
-		STitle:  sTitle,
-		PName:   productName,
-		InStock: inStock,
-		Back: buttons.NewBackButton(callback.FromProductCardToProducts,
-			&cTitle,
-			&sTitle,
-			&inStock,
-		),
-	})
 	customer, err := h.customerService.GetByTelegramID(ctx, chatID)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
@@ -154,7 +142,26 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 	}
 
 	product := h.catalogProvider.GetProduct(cTitle, sTitle, productName, inStock)
-	if err := h.renderProductCard(ctx, chatID, product, customer, keyboard); err != nil {
+	currentQuantity := fn.Reduce(func(acc int, el domain.HouseholdProduct, _ int) int {
+		if el.Name == productName {
+			acc += 1
+		}
+		return acc
+	}, customer.Cart.Slice(), 0)
+	keyboard := buttons.NewProductCardButtons(buttons.ProductCardButtonsArgs{
+		Cb:       callback.AddToCart,
+		CTitle:   cTitle,
+		STitle:   sTitle,
+		PName:    productName,
+		InStock:  inStock,
+		Quantity: currentQuantity,
+		Back: buttons.NewBackButton(callback.FromProductCardToProducts,
+			&cTitle,
+			&sTitle,
+			&inStock,
+		),
+	})
+	if err := h.renderProductCard(ctx, chatID, product, customer, keyboard, inStock); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "ProductCard",
@@ -279,13 +286,14 @@ func (h *handler) renderProductCard(
 	p domain.HouseholdProduct,
 	customer domain.HouseholdCustomer,
 	keyboard tg.InlineKeyboardMarkup,
+	inStock bool,
 ) error {
 	photo := tg.NewPhoto(chatID, tg.FileURL(p.ImageURL))
 	if customer.HasPromocode() {
 		promo, _ := customer.GetPromocode()
-		photo.Caption = templates.HouseholdProductCaptionWithDiscount(p, promo.GetDiscount(domain.SourceHousehold))
+		photo.Caption = templates.HouseholdProductCaptionWithDiscount(p, promo.GetHouseholdDiscount(), inStock)
 	} else {
-		photo.Caption = templates.HouseholdProductCaption(p)
+		photo.Caption = templates.HouseholdProductCaption(p, inStock)
 	}
 	photo.ParseMode = "markdown"
 	photo.ReplyMarkup = keyboard

@@ -12,12 +12,13 @@ import (
 	"household_bot/internal/telegram/callback"
 	"household_bot/internal/telegram/templates"
 	"household_bot/internal/telegram/tg_errors"
+	"utils/ptr"
 )
 
 func (h *handler) AskForFIO(ctx context.Context, chatID int64) error {
 	telegramID := chatID
 	// Beforehand check the cart for validity
-	if err := h.sendMessage(chatID, "Проверяем вашу корзину... Пожалуйста, подождите"); err != nil {
+	if err := h.sendMessage(chatID, templates.CheckingCart()); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "AskForFIO",
@@ -57,7 +58,16 @@ func (h *handler) AskForFIO(ctx context.Context, chatID int64) error {
 	}
 
 	if !ok {
-		if err := h.sendMessage(chatID, fmt.Sprintf("Продукт: %s с артикулом: %s, Oтсутствует!\n", missingProduct.Name, missingProduct.ISBN)); err != nil {
+		err := h.sendWithKeyboard(
+			chatID,
+			templates.ProductNotFound(
+				missingProduct.Name,
+				missingProduct.ISBN,
+			),
+			buttons.GotoCart,
+		)
+
+		if err != nil {
 			return tg_errors.New(tg_errors.Config{
 				OriginalErr: err,
 				Handler:     "AskForFIO",
@@ -67,7 +77,7 @@ func (h *handler) AskForFIO(ctx context.Context, chatID int64) error {
 		return nil
 	}
 
-	if err := h.sendMessage(chatID, "Все хорошо, можете создавать заказ"); err != nil {
+	if err := h.sendMessage(chatID, "Все хорошо, можешь создавать заказ"); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "AskForFIO",
@@ -197,68 +207,47 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 		})
 	}
 
-	shortID, err := h.orderService.GetFreeShortID(ctx)
+	firstProduct, _ := customer.Cart.First()
+	category, _ := h.catalogProvider.GetCategoryByID(firstProduct.CategoryID)
+
+	order, err := h.makeOrderUsecase.NewOrder(ctx, address, customer, category.InStock)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandleDeliveryAddressInput",
-			CausedBy:    "GetFreeShortID",
+			CausedBy:    "NewOrder",
 		})
 	}
 
-	// very clean
-	order := domain.NewHouseholdOrder(customer, address, shortID)
-	if customer.HasPromocode() {
-		promo, _ := customer.GetPromocode()
-		order.UseDiscount(promo.GetDiscount(domain.SourceHousehold))
-	}
-
-	if err := h.orderService.Save(ctx, order); err != nil {
+	err = h.sendOrder(
+		ctx,
+		chatID,
+		order,
+		customer.HasPromocode(),
+		ptr.Ptr(customer.MustGetPromocode().GetHouseholdDiscount()),
+	)
+	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandleDeliveryAddressInput",
-			CausedBy:    "Save",
-		})
-	}
-
-	customer.Cart.Clear()
-	updateDTO := dto.UpdateHouseholdCustomerDTO{
-		Cart:  &customer.Cart,
-		State: &domain.StateDefault,
-	}
-	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandleDeliveryAddressInput",
-			CausedBy:    "Update",
-		})
-	}
-
-	if err := h.sendOrder(ctx, order, chatID); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandleDeliveryAddressInput",
-			CausedBy:    "sendOrderPreview",
+			CausedBy:    "sendOrder",
 		})
 	}
 	return nil
 }
 
-func (h *handler) sendOrder(ctx context.Context,
-	order domain.HouseholdOrder,
-	chatID int64) error {
-
-	orderText := templates.RenderOrderAfterPayment(order)
-	if err := h.sendMessage(chatID, orderText); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "sendOrder",
-			CausedBy:    "sendMessage",
-		})
+func (h *handler) sendOrder(ctx context.Context, chatID int64, order domain.HouseholdOrder, discounted bool, discount *uint32) error {
+	if discounted && discount != nil {
+		if err := h.sendMessage(chatID, templates.RenderOrderAfterPaymentWithDiscount(order, *discount)); err != nil {
+			return err
+		}
+	} else {
+		if err := h.sendMessage(chatID, templates.RenderOrderAfterPayment(order)); err != nil {
+			return err
+		}
 	}
 
 	updateDTO := dto.UpdateHouseholdCustomerDTO{
-		Meta:  &domain.Meta{},
 		State: &domain.StateDefault,
 	}
 	if err := h.customerService.Update(ctx, order.Customer.CustomerID, updateDTO); err != nil {
@@ -269,22 +258,15 @@ func (h *handler) sendOrder(ctx context.Context,
 		})
 	}
 
-	requisitesMsg := tg.NewMessage(chatID, templates.Requisites(order.ShortID, domain.AdminRequisites))
-	sentRequisitesMsg, err := h.bot.Send(requisitesMsg)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "Send",
-			CausedBy:    "Update",
-		})
-	}
-
-	editButton := tg.NewEditMessageReplyMarkup(chatID,
-		sentRequisitesMsg.MessageID,
-		buttons.NewPaymentButton(callback.AcceptPayment, order.ShortID),
-	)
-
-	return h.cleanSend(editButton)
+	requisites := tg.NewMessage(chatID, templates.Requisites(order.ShortID, domain.AdminRequisites))
+	return h.sendWithMessageID(requisites, func(msgID int) error {
+		editButton := tg.NewEditMessageReplyMarkup(
+			chatID,
+			msgID,
+			buttons.NewPaymentButton(callback.AcceptPayment, order.ShortID),
+		)
+		return h.cleanSend(editButton)
+	})
 }
 
 func (h *handler) HandlePayment(ctx context.Context, c *tg.CallbackQuery, args []string) error {

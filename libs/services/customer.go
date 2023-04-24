@@ -102,6 +102,24 @@ func (c *customerService[T, D]) All(ctx context.Context) ([]T, error) {
 	}
 }
 
+func (c *customerService[T, D]) GetAllByPromocodeID(ctx context.Context, promocodeID primitive.ObjectID) ([]T, error) {
+	var customers []T
+	if c.isHousehold() {
+		result, err := c.householdCustomerRepo.GetAllByPromocodeID(ctx, promocodeID)
+		if err != nil {
+			return nil, err
+		}
+		customers = any(result).([]T)
+	} else {
+		result, err := c.clothingCustomerRepo.GetAllByPromocodeID(ctx, promocodeID)
+		if err != nil {
+			return nil, err
+		}
+		customers = any(result).([]T)
+	}
+	return customers, nil
+}
+
 func (c *customerService[T, D]) Save(ctx context.Context, customer T) error {
 	if c.isHousehold() {
 		return c.householdCustomerRepo.Save(ctx, any(customer).(domain.HouseholdCustomer))

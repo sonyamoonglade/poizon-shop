@@ -2,9 +2,14 @@ package handler
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net/http"
+	"strconv"
+	"time"
 
 	"onlineshop/api/internal/auth"
+	"onlineshop/api/internal/uploader"
 	"repositories"
 	"services"
 
@@ -20,13 +25,15 @@ type Handler struct {
 	repositories repositories.Repositories
 	services     services.Services
 	rateProvider RateProvider
+	uploader     *uploader.Uploader
 }
 
-func NewHandler(repos repositories.Repositories, services services.Services) *Handler {
+func NewHandler(repos repositories.Repositories, services services.Services, u *uploader.Uploader) *Handler {
 	return &Handler{
 		repositories: repos,
 		rateProvider: repos.Rate,
 		services:     services,
+		uploader:     u,
 	}
 }
 
@@ -36,10 +43,12 @@ func (h *Handler) RegisterRoutes(router fiber.Router, apiKey string) {
 	api := router.Group("/api")
 	api.Use(auth.NewAPIKeyMiddleware(apiKey))
 
+	api.Post("/upload", h.Upload)
+
 	api.Post("/updateRate", h.UpdateRate)
 	api.Get("/currentRate", h.CurrentRate)
 
-	promocode := api.Group("/promocode")
+	promocode := api.Group("/promocodes")
 	{
 		promocode.Get("/all", h.GetAllPromocodes)
 		promocode.Get("/:promocodeId", h.GetByID)
@@ -54,7 +63,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router, apiKey string) {
 		order.Put("/:orderId/addComment", h.AddCommentToOrder)
 		order.Put("/:orderId/changeStatus", h.ChangeOrderStatus)
 		order.Put("/:orderId/approve", h.Approve)
-		order.Post("/:orderId/delete/", h.Delete)
+		order.Post("/:orderId/delete", h.Delete)
 	}
 
 	clothingCatalog := api.Group("/clothing/catalog")
@@ -76,4 +85,34 @@ func (h *Handler) RegisterRoutes(router fiber.Router, apiKey string) {
 }
 func (h *Handler) Home(c *fiber.Ctx) error {
 	return c.SendStatus(http.StatusOK)
+}
+
+func (h *Handler) Upload(c *fiber.Ctx) error {
+	fheader, err := c.FormFile("file")
+	if err != nil {
+		return fmt.Errorf("multipart: %w", err)
+	}
+	f, err := fheader.Open()
+	if err != nil {
+		return fmt.Errorf("open: %w", err)
+	}
+	bits, err := io.ReadAll(f)
+	if err != nil {
+		return fmt.Errorf("read all: %w", err)
+	}
+	seed := strconv.FormatInt(time.Now().Unix(), 10)
+	path := fmt.Sprintf("%s_%s", seed, fheader.Filename)
+	err = h.uploader.Put(c.Context(), uploader.PutFileDTO{
+		Filename:    path,
+		Destination: "", // left empty to upload to root dir
+		ContentType: http.DetectContentType(bits),
+		Bytes:       bits,
+	})
+	if err != nil {
+		return fmt.Errorf("uploader put: %w", err)
+	}
+
+	return c.Status(http.StatusCreated).JSON(fiber.Map{
+		"url": h.uploader.UrlToResource(path),
+	})
 }

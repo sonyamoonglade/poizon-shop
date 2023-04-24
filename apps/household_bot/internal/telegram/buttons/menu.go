@@ -22,14 +22,15 @@ func Menu(withPromo bool) tg.InlineKeyboardMarkup {
 		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Найти по артикулу", callback.Inject(callback.GetProductByISBN)),
 		),
+
+		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Посмотреть корзину", callback.Inject(callback.MyCart)),
+		),
 		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Вопросы", callback.Inject(callback.Faq)),
 		),
 		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Мои заказы", callback.Inject(callback.MyOrders)),
-		),
-		tg.NewInlineKeyboardRow(
-			tg.NewInlineKeyboardButtonData("Посмотреть корзину", callback.Inject(callback.MyCart)),
 		),
 	}
 	if withPromo {
@@ -60,8 +61,12 @@ func catalogType() tg.InlineKeyboardMarkup {
 func addPosition() tg.InlineKeyboardMarkup {
 	return tg.NewInlineKeyboardMarkup(
 		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Найти по артикулу", callback.Inject(callback.GetProductByISBN)),
+		),
+		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Добавить позицию", callback.Inject(callback.Catalog)),
-		))
+		),
+	)
 }
 
 func makeOrder() tg.InlineKeyboardMarkup {

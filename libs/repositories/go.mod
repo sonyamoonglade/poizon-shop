@@ -16,6 +16,7 @@ require (
 require (
 	domain v0.0.0
 	dto v0.0.0
+	usecase v0.0.0
 	functools v0.0.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/klauspost/compress v1.16.5 // indirect
@@ -46,5 +47,6 @@ replace (
 	onlineshop/database v0.0.0 => ../database
 	redis v0.0.0 => ../redis
 	services v0.0.0 => ../services
+	usecase => ../usecase
 	utils => ../utils
 )

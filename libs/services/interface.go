@@ -11,7 +11,8 @@ import (
 )
 
 type Order[T domain.HouseholdOrder | domain.ClothingOrder] interface {
-	GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID, source domain.Source) ([]T, error)
+	GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID) ([]T, error)
+	GetLast(ctx context.Context, customerID primitive.ObjectID) ([]T, error)
 	Save(ctx context.Context, order T) error
 	UpdateToPaid(ctx context.Context, customerID primitive.ObjectID, shortID string) error
 	GetFreeShortID(ctx context.Context) (string, error)
@@ -47,6 +48,7 @@ type dtoConstraint interface {
 	dto.UpdateClothingCustomerDTO | dto.UpdateHouseholdCustomerDTO
 }
 type Customer[T customerConstraint, D dtoConstraint] interface {
+	GetAllByPromocodeID(ctx context.Context, promocodeID primitive.ObjectID) ([]T, error)
 	GetByTelegramID(ctx context.Context, telegramID int64) (T, error)
 	All(ctx context.Context) ([]T, error)
 	Save(ctx context.Context, c T) error

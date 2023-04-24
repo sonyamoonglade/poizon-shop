@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -24,6 +25,7 @@ type Promocode struct {
 
 func NewPromocode(description string, discounts DiscountMap, shortID string) Promocode {
 	return Promocode{
+		PromocodeID: primitive.NewObjectID(),
 		Description: description,
 		ShortID:     shortID,
 		Discounts:   discounts,
@@ -31,18 +33,29 @@ func NewPromocode(description string, discounts DiscountMap, shortID string) Pro
 	}
 }
 
-func (p Promocode) GetDiscount(source Source) uint32 {
+func (p Promocode) getDiscount(source Source) uint32 {
+	if p.Discounts == nil {
+		return 0
+	}
 	return p.Discounts[source]
 }
 
-func (p *Promocode) IncrementAsFirst() Promocode {
-	p.Counters.AsFirst++
-	return *p
+func (p Promocode) GetHouseholdDiscount() uint32 {
+	return p.getDiscount(SourceHousehold)
 }
 
-func (p *Promocode) IncrementAsSecondEtc() Promocode {
-	p.Counters.AsSecondEtc++
-	return *p
+func (p Promocode) GetClothingDiscount() uint32 {
+	return p.getDiscount(SourceClothing)
+}
+
+func (p *Promocode) IncrementAsFirst(x int) *Promocode {
+	p.Counters.AsFirst += uint32(x)
+	return p
+}
+
+func (p *Promocode) IncrementAsSecondEtc(x int) *Promocode {
+	p.Counters.AsSecondEtc += uint32(x)
+	return p
 }
 
 type PromoCounters struct {
@@ -72,6 +85,25 @@ func (d *DiscountMap) UnmarshalBSON(raw []byte) error {
 	}
 	for k, v := range recv {
 		(*d)[SourceFromString(k)] = v
+	}
+	return nil
+}
+
+func (d DiscountMap) MarshalJSON() ([]byte, error) {
+	out := make(map[string]any)
+	for k, v := range d {
+		out[k.String()] = v
+	}
+	return json.Marshal(out)
+}
+func (d *DiscountMap) UnmarshalJSON(raw []byte) error {
+	*d = make(DiscountMap)
+	recv := make(map[string]any)
+	if err := json.Unmarshal(raw, &recv); err != nil {
+		return err
+	}
+	for k, v := range recv {
+		(*d)[SourceFromString(k)] = v.(uint32)
 	}
 	return nil
 }
