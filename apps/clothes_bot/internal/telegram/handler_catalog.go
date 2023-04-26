@@ -7,6 +7,7 @@ import (
 	"domain"
 	"dto"
 	"functools"
+
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/google/go-cmp/cmp"
 )
@@ -156,7 +157,7 @@ func (h *handler) updateCatalog(ctx context.Context,
 		return h.sendWithKeyboard(chatID, "Данный товар больше не существует. Зайди в каталог заново", prepareMenuButtons(false))
 	}
 	var (
-		discount   *uint32
+		discount   = new(uint32)
 		discounted bool
 	)
 	if customer.HasPromocode() {
