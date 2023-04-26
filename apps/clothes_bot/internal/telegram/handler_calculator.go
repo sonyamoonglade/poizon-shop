@@ -12,7 +12,7 @@ import (
 )
 
 func (h *handler) AskForCalculatorOrderType(ctx context.Context, chatID int64) error {
-	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateWaitingForCalculatorOrderType); err != nil {
+	if err := h.customerService.UpdateState(ctx, chatID, domain.StateWaitingForCalculatorOrderType); err != nil {
 		return err
 	}
 
@@ -22,17 +22,12 @@ func (h *handler) AskForCalculatorOrderType(ctx context.Context, chatID int64) e
 
 func (h *handler) HandleCalculatorOrderTypeInput(ctx context.Context, chatID int64, typ domain.OrderType) error {
 	var (
-		telegramID = chatID
-		isExpress  = typ == domain.OrderTypeExpress
+		isExpress = typ == domain.OrderTypeExpress
 	)
 
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForCalculatorOrderType, chatID); err != nil {
-		return err
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForCalculatorOrderType)
 	if err != nil {
-		return err
+		return fmt.Errorf("check required state: %w", err)
 	}
 
 	customer.UpdateCalculatorMetaOrderType(typ)
@@ -41,7 +36,7 @@ func (h *handler) HandleCalculatorOrderTypeInput(ctx context.Context, chatID int
 		CalculatorMeta: &customer.CalculatorMeta,
 	}
 
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return err
 	}
 
@@ -62,22 +57,16 @@ func (h *handler) HandleCalculatorOrderTypeInput(ctx context.Context, chatID int
 }
 
 func (h *handler) AskForCalculatorCategory(ctx context.Context, chatID int64) error {
-	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateWaitingForCalculatorCategory); err != nil {
+	if err := h.customerService.UpdateState(ctx, chatID, domain.StateWaitingForCalculatorCategory); err != nil {
 		return err
 	}
 	return h.sendWithKeyboard(chatID, askForCategoryTemplate, categoryCalculatorButtons)
 }
 
 func (h *handler) HandleCalculatorCategoryInput(ctx context.Context, chatID int64, cat domain.Category) error {
-	var telegramID = chatID
-
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForCalculatorCategory, chatID); err != nil {
-		return err
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForCalculatorCategory)
 	if err != nil {
-		return err
+		return fmt.Errorf("check required state: %w", err)
 	}
 
 	customer.UpdateCalculatorMetaCategory(cat)
@@ -85,7 +74,7 @@ func (h *handler) HandleCalculatorCategoryInput(ctx context.Context, chatID int6
 		CalculatorMeta: &customer.CalculatorMeta,
 	}
 
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
 
@@ -99,7 +88,7 @@ func (h *handler) HandleCalculatorCategoryInput(ctx context.Context, chatID int6
 func (h *handler) askForCalculatorInput(ctx context.Context, chatID int64) error {
 	var telegramID = chatID
 
-	if err := h.customerRepo.UpdateState(ctx, telegramID, domain.StateWaitingForCalculatorInput); err != nil {
+	if err := h.customerService.UpdateState(ctx, telegramID, domain.StateWaitingForCalculatorInput); err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
 
@@ -111,8 +100,9 @@ func (h *handler) HandleCalculatorInput(ctx context.Context, m *tg.Message) erro
 		chatID = m.Chat.ID
 		input  = strings.TrimSpace(m.Text)
 	)
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForCalculatorInput, chatID); err != nil {
-		return err
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForCalculatorInput)
+	if err != nil {
+		return fmt.Errorf("check required state: %w", err)
 	}
 
 	priceYuan, err := strconv.ParseUint(input, 10, 64)
@@ -121,11 +111,6 @@ func (h *handler) HandleCalculatorInput(ctx context.Context, m *tg.Message) erro
 			return err
 		}
 		return fmt.Errorf("strconv.ParseUint: %w", err)
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, chatID)
-	if err != nil {
-		return err
 	}
 
 	var (
@@ -153,9 +138,18 @@ func (h *handler) HandleCalculatorInput(ctx context.Context, m *tg.Message) erro
 		return err
 	}
 
-	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateDefault); err != nil {
+	if err := h.customerService.UpdateState(ctx, chatID, domain.StateDefault); err != nil {
 		return err
 	}
+	if customer.HasPromocode() {
+		return h.sendWithKeyboard(chatID,
+			fmt.Sprintf(
+				"Итоговая стоимость с учетом скидки: %d ₽",
+				priceRub-uint64(customer.MustGetPromocode().GetClothingDiscount()),
+			),
+			calculateMoreButtons,
+		)
+	}
 
-	return h.sendWithKeyboard(chatID, getCalculatorOutput(priceRub), calculateMoreButtons)
+	return h.sendWithKeyboard(chatID, fmt.Sprintf("Итоговая стоимость: %d ₽", priceRub), calculateMoreButtons)
 }

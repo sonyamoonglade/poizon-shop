@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"domain"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/suite"
@@ -35,9 +36,10 @@ type AppTestSuite struct {
 	svc              *services.Services
 	makeOrderUsecase *usecase.HouseholdMakeOrder
 
-	mockBot     *mock_handler.MockBot
-	tghandler   router.RouteHandler
-	updatesChan <-chan tg.Update
+	catalogProvider *catalog.Provider
+	mockBot         *mock_handler.MockBot
+	tghandler       router.RouteHandler
+	updatesChan     <-chan tg.Update
 }
 
 func TestAPISuite(t *testing.T) {
@@ -72,7 +74,9 @@ func (s *AppTestSuite) setupDeps() {
 	}
 
 	catalogProvider := catalog.NewProvider()
-	repos := repositories.NewRepositories(mongo, nil, nil)
+	repos := repositories.NewRepositories(mongo, nil, func(items []domain.HouseholdCategory) {
+		catalogProvider.Load(items)
+	})
 
 	updates := make(chan tg.Update)
 
@@ -104,6 +108,7 @@ func (s *AppTestSuite) setupDeps() {
 	s.svc = &svc
 	s.mockBot = mockBot
 	s.makeOrderUsecase = makeOrderUsecase
+	s.catalogProvider = catalogProvider
 }
 
 func (s *AppTestSuite) replaceBotInHandler(bot handler.Bot) {
@@ -112,7 +117,7 @@ func (s *AppTestSuite) replaceBotInHandler(bot handler.Bot) {
 		RateProvider:      s.repositories.Rate,
 		MakeOrderUsecase:  s.makeOrderUsecase,
 		PromocodeRepo:     s.repositories.Promocode,
-		CatalogProvider:   catalog.NewProvider(),
+		CatalogProvider:   s.catalogProvider,
 		OrderService:      s.svc.HouseholdOrder,
 		CategoryService:   s.svc.HouseholdCategory,
 		CatalogMsgService: s.svc.HouseholdCatalogMsg,

@@ -189,7 +189,7 @@ func (h *Handler) Delete(c *fiber.Ctx) error {
 		return c.SendStatus(http.StatusOK)
 	}
 
-	if err := h.repositories.ClothingOrder.Delete(c.Context(), orderID); err != nil {
+	if err := h.repositories.HouseholdOrder.Delete(c.Context(), orderID); err != nil {
 		return fmt.Errorf("delete: %w", err)
 	}
 	return c.SendStatus(http.StatusOK)
@@ -226,17 +226,12 @@ func (h *Handler) updateHouseholdPromocodeCounters(ctx context.Context, order do
 	}
 	// In order to join Promocode field
 	order.Customer = customer
-	var isFirstOrder bool
-	orders, err := h.services.HouseholdOrder.GetAllForCustomer(ctx, order.Customer.CustomerID)
+
+	isFirstOrder, err := h.services.HouseholdOrder.HasOnlyOneOrder(ctx, customer.CustomerID)
 	if err != nil {
-		if !errors.Is(err, domain.ErrNoOrders) {
-			return fmt.Errorf("household get all: %w", err)
-		}
-		isFirstOrder = true
+		return fmt.Errorf("has only one order: %w", err)
 	}
-	if orders == nil {
-		isFirstOrder = true
-	}
+
 	promo := customer.MustGetPromocode()
 	if isFirstOrder {
 		promo.IncrementAsFirst(order.Cart.Size())
@@ -261,17 +256,12 @@ func (h *Handler) updateClothingPromocodeCounters(ctx context.Context, order dom
 	}
 	// In order to join Promocode field
 	order.Customer = customer
-	orders, err := h.services.ClothingOrder.GetAllForCustomer(ctx, order.Customer.CustomerID)
-	var isFirstOrder bool
+
+	isFirstOrder, err := h.services.ClothingOrder.HasOnlyOneOrder(ctx, customer.CustomerID)
 	if err != nil {
-		if !errors.Is(err, domain.ErrNoOrders) {
-			return fmt.Errorf("clothing get get all: %w", err)
-		}
-		isFirstOrder = true
+		return fmt.Errorf("has only one order: %w", err)
 	}
-	if orders == nil {
-		isFirstOrder = true
-	}
+
 	promo := customer.MustGetPromocode()
 	if isFirstOrder {
 		promo.IncrementAsFirst(order.Cart.Size())

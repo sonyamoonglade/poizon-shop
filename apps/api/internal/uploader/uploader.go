@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/sonyamoonglade/s3-yandex-go/s3yandex"
+	"onlineshop/api/internal/handler"
 )
 
 type Config struct {
@@ -24,14 +25,7 @@ func NewUploader(client *s3yandex.YandexS3Client, baseURL string) *Uploader {
 	}
 }
 
-type PutFileDTO struct {
-	Filename,
-	Destination,
-	ContentType string
-	Bytes []byte
-}
-
-func (f *Uploader) Put(ctx context.Context, dto PutFileDTO) error {
+func (f *Uploader) Put(ctx context.Context, dto handler.PutFileDTO) error {
 	return f.client.PutFileWithBytes(ctx, &s3yandex.PutFileWithBytesInput{
 		ContentType: dto.ContentType,
 		FileName:    dto.Filename,

@@ -8,8 +8,10 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/golang/mock/gomock"
 	"logger"
 	"onlineshop/api/internal/handler"
+	mock_handler "onlineshop/api/internal/handler/mocks"
 	"onlineshop/database"
 	"repositories"
 	"services"
@@ -28,11 +30,11 @@ func init() {
 type AppTestSuite struct {
 	suite.Suite
 
-	db                       *database.Mongo
-	api                      *handler.Handler
-	repositories             *repositories.Repositories
-	householdCategoryService services.HouseholdCategory
-	app                      *fiber.App
+	db           *database.Mongo
+	api          *handler.Handler
+	repositories *repositories.Repositories
+	services     *services.Services
+	app          *fiber.App
 }
 
 func TestAPISuite(t *testing.T) {
@@ -56,7 +58,6 @@ func (s *AppTestSuite) TearDownSubTest(suiteName, testName string) {
 }
 
 func (s *AppTestSuite) setupDeps() {
-
 	logger.NewLogger(logger.Config{
 		EnableStacktrace: true,
 	})
@@ -73,8 +74,9 @@ func (s *AppTestSuite) setupDeps() {
 
 	repos := repositories.NewRepositories(mongo, nil, nil)
 
-	hhCategoryService := services.NewHouseholdCategoryService(repos.HouseholdCategory, mongo)
-	apiHandler := handler.NewHandler(repos, hhCategoryService)
+	svc := services.NewServices(repos, mongo)
+	mockUploader := mock_handler.NewMockImageUploader(gomock.NewController(s.T()))
+	apiHandler := handler.NewHandler(repos, svc, mockUploader)
 
 	app := fiber.New(fiber.Config{
 		Immutable:    true,
@@ -90,7 +92,7 @@ func (s *AppTestSuite) setupDeps() {
 
 	s.app = app
 	s.db = mongo
-	s.householdCategoryService = hhCategoryService
+	s.services = &svc
 	s.api = apiHandler
 	s.repositories = &repos
 }

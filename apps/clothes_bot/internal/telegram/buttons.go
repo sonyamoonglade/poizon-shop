@@ -14,58 +14,8 @@ const (
 	arrRight = "➡"
 )
 
-// DO NOT CHANGE ORDER
-// LOGIC DEMANDS ON IOTA
-// todo: change from iota
-const (
-	noopCallback = iota
-	menuCatalogCallback
-	menuFaqCallback
-	menuMyOrdersCallback
-	menuCalculatorCallback
-	calculateMoreCallback
-	menuMakeOrderCallback
-	orderGuideStep0Callback
-	orderGuideStep1Callback
-	orderGuideStep2Callback
-	orderGuideStep3Callback
-	orderGuideStep4Callback
-	orderGuideStep5Callback
-	makeOrderCallback
-	buttonTorqoiseSelectCallback
-	buttonGreySelectCallback
-	button95SelectCallback
-	addPositionCallback
-	editCartCallback
-	orderTypeNormalCallback
-	orderTypeNormalCalculatorCallback
-	orderTypeExpressCallback
-	orderTypeExpressCalculatorCallback
-	categoryLightCallback
-	categoryLightCalculatorCallback
-	categoryHeavyCallback
-	categoryHeavyCalculatorCallback
-	categoryOtherCallback
-	categoryOtherCalculatorCallback
-	selectCategoryAgainCallback
-
-	paymentCallback
-)
-
-const (
-	editCartRemovePositionOffset = 1000
-	catalogOffset                = 1200
-	faqOffset                    = 1400
-)
-
-const (
-	catalogPrevCallback = iota + 1
-	catalogNextCallback
-)
-
 var (
 	initialMenuKeyboard                 = initialBottomMenu()
-	menuButtons                         = menu()
 	selectColorButtons                  = selectButtonColor()
 	bottomMenuButtons                   = bottomMenu()
 	bottomMenuWithoutAddPositionButtons = bottomMenuWithoutAddPosition()
@@ -158,10 +108,10 @@ func parseCallbackData(data string) (injectedData any, callback int, err error) 
 	return
 }
 
-func menu() tg.InlineKeyboardMarkup {
-	return tg.NewInlineKeyboardMarkup(
+func prepareMenuButtons(withPromo bool) tg.InlineKeyboardMarkup {
+	rows := [][]tg.InlineKeyboardButton{
 		tg.NewInlineKeyboardRow(
-			tg.NewInlineKeyboardButtonData("Каталог", strconv.Itoa(menuCatalogCallback)),
+			tg.NewInlineKeyboardButtonData("Наличие", strconv.Itoa(menuCatalogCallback)),
 		),
 		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Сделать заказ", strconv.Itoa(menuMakeOrderCallback)),
@@ -173,9 +123,18 @@ func menu() tg.InlineKeyboardMarkup {
 			tg.NewInlineKeyboardButtonData("Вопросы", strconv.Itoa(menuFaqCallback)),
 		),
 		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Посмотреть корзину", strconv.Itoa(myCartCallback)),
+		),
+		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Мои заказы", strconv.Itoa(menuMyOrdersCallback)),
 		),
-	)
+	}
+	if withPromo {
+		rows = append(rows, tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Ввести промокод", strconv.Itoa(promocodeCallback)),
+		))
+	}
+	return tg.NewInlineKeyboardMarkup(rows...)
 }
 
 func prepareOrderGuideButtons(step int, msgIDs ...int) tg.InlineKeyboardMarkup {

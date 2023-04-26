@@ -4,7 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 
+	"dto"
+	"go.uber.org/multierr"
 	"onlineshop/api/internal/input"
 
 	"github.com/gofiber/fiber/v2"
@@ -44,7 +47,6 @@ func (h *Handler) DeletePromocode(c *fiber.Ctx) error {
 	if err := h.repositories.Promocode.Delete(c.Context(), promoId); err != nil {
 		return fmt.Errorf("delete: %w", err)
 	}
-	// TODO: for each customer that owns it - delete
 	hCustomers, err := h.services.HouseholdCustomer.GetAllByPromocodeID(c.Context(), promoId)
 	if err != nil {
 		return fmt.Errorf("get all by promoid: %w", err)
@@ -53,7 +55,32 @@ func (h *Handler) DeletePromocode(c *fiber.Ctx) error {
 	if err != nil {
 		return fmt.Errorf("get all by promoid: %w", err)
 	}
-	_, _ = cCustomers, hCustomers
+	// clothing
+	wg := new(sync.WaitGroup)
+	wg.Add(2)
+	go func() {
+		for _, customer := range cCustomers {
+			err = multierr.Append(err, h.services.ClothingCustomer.Update(c.Context(), customer.CustomerID, dto.UpdateClothingCustomerDTO{
+				PromocodeID: &primitive.ObjectID{},
+			}))
+		}
+		wg.Done()
+	}()
+	// household
+	go func() {
+		for _, customer := range hCustomers {
+			err = multierr.Append(err, h.services.HouseholdCustomer.Update(c.Context(), customer.CustomerID, dto.UpdateHouseholdCustomerDTO{
+				PromocodeID: &primitive.ObjectID{},
+			}))
+		}
+		wg.Done()
+	}()
+	wg.Wait()
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
 	return c.SendStatus(http.StatusOK)
 }
 

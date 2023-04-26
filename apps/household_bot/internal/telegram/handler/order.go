@@ -207,8 +207,14 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 		})
 	}
 
-	firstProduct, _ := customer.Cart.First()
-	category, _ := h.catalogProvider.GetCategoryByID(firstProduct.CategoryID)
+	firstProduct, ok := customer.Cart.First()
+	if !ok {
+		return h.sendMessage(chatID, "Твоя корзина пуста!")
+	}
+	category, ok := h.catalogProvider.GetCategoryByID(firstProduct.CategoryID)
+	if !ok {
+		return h.handleIfCategoryNotFound(ctx, chatID, customer, firstProduct)
+	}
 
 	order, err := h.makeOrderUsecase.NewOrder(ctx, address, customer, category.InStock)
 	if err != nil {

@@ -27,6 +27,7 @@ func (s *AppTestSuite) TestHandlerAddToCart() {
 	t.Run("should not add because customer has added"+
 		"item with category (inStock=false), but trying to add"+
 		"product with category(inStock=true)", func(t *testing.T) {
+
 		// Product from this category is already added to cart (in stock)
 		c1 := domain.NewHouseholdCategory(f.Word(), true)
 		c1.CategoryID = primitive.NewObjectID()
@@ -110,7 +111,7 @@ func (s *AppTestSuite) TestHandlerAddToCart() {
 			s.repositories.HouseholdCategory.Delete(ctx, c2.CategoryID)
 		})
 
-		err = s.tghandler.AddToCart(ctx, telegramID, expectedArgs, router.SourceCatalog)
+		err = s.tghandler.AddToCart(ctx, telegramID, 1, expectedArgs, router.SourceCatalog)
 		require.NoError(err)
 
 		customer, err = s.repositories.HouseholdCustomer.GetByTelegramID(ctx, telegramID)

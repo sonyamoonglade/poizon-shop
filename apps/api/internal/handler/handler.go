@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"onlineshop/api/internal/auth"
-	"onlineshop/api/internal/uploader"
 	"repositories"
 	"services"
 
@@ -21,19 +20,31 @@ type RateProvider interface {
 	GetYuanRate(ctx context.Context) (float64, error)
 }
 
-type Handler struct {
-	repositories repositories.Repositories
-	services     services.Services
-	rateProvider RateProvider
-	uploader     *uploader.Uploader
+type PutFileDTO struct {
+	Filename,
+	Destination,
+	ContentType string
+	Bytes []byte
 }
 
-func NewHandler(repos repositories.Repositories, services services.Services, u *uploader.Uploader) *Handler {
+type ImageUploader interface {
+	Put(ctx context.Context, dto PutFileDTO) error
+	UrlToResource(filename string) string
+}
+
+type Handler struct {
+	repositories  repositories.Repositories
+	services      services.Services
+	rateProvider  RateProvider
+	imageUploader ImageUploader
+}
+
+func NewHandler(repos repositories.Repositories, services services.Services, imageUploader ImageUploader) *Handler {
 	return &Handler{
-		repositories: repos,
-		rateProvider: repos.Rate,
-		services:     services,
-		uploader:     u,
+		repositories:  repos,
+		rateProvider:  repos.Rate,
+		services:      services,
+		imageUploader: imageUploader,
 	}
 }
 
@@ -102,7 +113,7 @@ func (h *Handler) Upload(c *fiber.Ctx) error {
 	}
 	seed := strconv.FormatInt(time.Now().Unix(), 10)
 	path := fmt.Sprintf("%s_%s", seed, fheader.Filename)
-	err = h.uploader.Put(c.Context(), uploader.PutFileDTO{
+	err = h.imageUploader.Put(c.Context(), PutFileDTO{
 		Filename:    path,
 		Destination: "", // left empty to upload to root dir
 		ContentType: http.DetectContentType(bits),
@@ -113,6 +124,6 @@ func (h *Handler) Upload(c *fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusCreated).JSON(fiber.Map{
-		"url": h.uploader.UrlToResource(path),
+		"url": h.imageUploader.UrlToResource(path),
 	})
 }

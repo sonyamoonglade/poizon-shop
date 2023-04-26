@@ -13,7 +13,7 @@ import (
 func (h *handler) AskForFIO(ctx context.Context, chatID int64) error {
 	var telegramID = chatID
 
-	if err := h.customerRepo.UpdateState(ctx, telegramID, domain.StateWaitingForFIO); err != nil {
+	if err := h.customerService.UpdateState(ctx, telegramID, domain.StateWaitingForFIO); err != nil {
 		return err
 	}
 	return h.sendMessage(chatID, askForFIOTemplate)
@@ -21,18 +21,13 @@ func (h *handler) AskForFIO(ctx context.Context, chatID int64) error {
 
 func (h *handler) HandleFIOInput(ctx context.Context, m *tg.Message) error {
 	var (
-		chatID     = m.From.ID
-		telegramID = chatID
-		fullName   = strings.TrimSpace(m.Text)
+		chatID   = m.From.ID
+		fullName = strings.TrimSpace(m.Text)
 	)
 
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForFIO, chatID); err != nil {
-		return err
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForFIO)
 	if err != nil {
-		return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
+		return fmt.Errorf("check required state: %w", err)
 	}
 
 	if !domain.IsValidFullName(fullName) {
@@ -44,7 +39,7 @@ func (h *handler) HandleFIOInput(ctx context.Context, m *tg.Message) error {
 		FullName: &fullName,
 	}
 
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
 
@@ -58,21 +53,16 @@ func (h *handler) HandleFIOInput(ctx context.Context, m *tg.Message) error {
 func (h *handler) HandlePhoneNumberInput(ctx context.Context, m *tg.Message) error {
 	var (
 		chatID      = m.From.ID
-		telegramID  = chatID
 		phoneNumber = strings.TrimSpace(m.Text)
 	)
 
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForPhoneNumber, chatID); err != nil {
-		return err
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForPhoneNumber)
+	if err != nil {
+		return fmt.Errorf("check required state: %w", err)
 	}
 
 	if !domain.IsValidPhoneNumber(phoneNumber) {
 		return h.sendMessage(chatID, "Неправильный формат номера телефона.\n"+askForPhoneNumberTemplate)
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
-	if err != nil {
-		return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
 	}
 
 	updateDTO := dto.UpdateClothingCustomerDTO{
@@ -80,7 +70,7 @@ func (h *handler) HandlePhoneNumberInput(ctx context.Context, m *tg.Message) err
 		PhoneNumber: &phoneNumber,
 	}
 
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
 
@@ -93,19 +83,14 @@ func (h *handler) HandlePhoneNumberInput(ctx context.Context, m *tg.Message) err
 
 func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message) error {
 	var (
-		chatID     = m.From.ID
-		telegramID = chatID
-		address    = strings.TrimSpace(m.Text)
+		chatID  = m.From.ID
+		address = strings.TrimSpace(m.Text)
 	)
 
 	// validate state
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForDeliveryAddress, chatID); err != nil {
-		return err
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForDeliveryAddress)
 	if err != nil {
-		return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
+		return fmt.Errorf("check required state: %w", err)
 	}
 
 	shortID, err := h.orderService.GetFreeShortID(ctx)
@@ -113,7 +98,7 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 		return err
 	}
 
-	isExpress := *customer.Meta.NextOrderType == domain.OrderTypeExpress
+	isExpress := customer.Meta.NextOrderType.IsExpress()
 	order := domain.NewClothingOrder(customer, address, isExpress, shortID)
 
 	if err := h.orderService.Save(ctx, order); err != nil {
@@ -126,7 +111,7 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 		State:        &domain.StateDefault,
 	}
 
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
 
@@ -142,8 +127,27 @@ func (h *handler) prepareOrderPreview(ctx context.Context, customer domain.Cloth
 		deliveryAddress: order.DeliveryAddress,
 		nCartItems:      len(order.Cart),
 	})
-
+	var (
+		discount   = new(uint32)
+		discounted bool
+	)
+	if customer.HasPromocode() {
+		discounted = true
+		*discount = customer.MustGetPromocode().GetClothingDiscount()
+	}
 	for i, cartItem := range order.Cart {
+		if discounted {
+			out += getDiscountedPositionTemplate(cartPositionPreviewDiscountedArgs{
+				n:           i + 1,
+				link:        cartItem.ShopLink,
+				size:        cartItem.Size,
+				discountRub: *discount,
+				category:    string(cartItem.Category),
+				priceRub:    cartItem.PriceRUB,
+				priceYuan:   cartItem.PriceYUAN,
+			})
+			continue
+		}
 		out += getPositionTemplate(cartPositionPreviewArgs{
 			n:         i + 1,
 			link:      cartItem.ShopLink,
@@ -166,7 +170,7 @@ func (h *handler) prepareOrderPreview(ctx context.Context, customer domain.Cloth
 		State: &domain.StateDefault,
 	}
 
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return err
 	}
 
@@ -186,7 +190,7 @@ func (h *handler) HandlePayment(ctx context.Context, shortOrderID string, c *tg.
 		telegramID = chatID
 	)
 
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
 	}

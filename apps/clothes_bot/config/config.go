@@ -25,6 +25,10 @@ type AppConfig struct {
 		// HandlerTimeout
 		HandlerTimeout time.Duration
 	}
+
+	Redis struct {
+		Addr string
+	}
 }
 
 func ReadConfig(path string) (AppConfig, error) {
@@ -60,6 +64,11 @@ func ReadConfig(path string) (AppConfig, error) {
 		return AppConfig{}, fmt.Errorf("missing telegram.handler_timeout")
 	}
 
+	redisAddr := os.Getenv("REDIS_ADDR")
+	if redisAddr == "" {
+		return AppConfig{}, fmt.Errorf("missing REDIS_ADDR env")
+	}
+
 	return AppConfig{
 		Database: struct {
 			URI  string
@@ -74,6 +83,11 @@ func ReadConfig(path string) (AppConfig, error) {
 		}{
 			Token:          botToken,
 			HandlerTimeout: time.Duration(handlerTimeout) * time.Second,
+		},
+		Redis: struct {
+			Addr string
+		}{
+			Addr: redisAddr,
 		},
 	}, nil
 }

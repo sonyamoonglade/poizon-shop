@@ -30,8 +30,11 @@ type RouteHandler interface {
 	Menu(ctx context.Context, chatID int64) error
 	Catalog(ctx context.Context, chatID int64) error
 	MyOrders(ctx context.Context, chatID int64) error
-	FAQ(ctx context.Context, chatID int64) error
 
+	AskForPromocode(ctx context.Context, chatID int64) error
+	HandlePromocodeInput(ctx context.Context, m *tg.Message) error
+
+	FAQ(ctx context.Context, chatID int64) error
 	AnswerQuestion(chatID int64, n int) error
 
 	AskForCalculatorOrderType(ctx context.Context, chatID int64) error
@@ -102,17 +105,16 @@ func NewRouter(updates <-chan tg.Update, h RouteHandler, stateProvider StateProv
 	}
 }
 
-// Cosmetic error return
-func (r *Router) Bootstrap() error {
+func (r *Router) Bootstrap() {
 	logger.Get().Info("router is listening for updates")
 	for {
 		select {
 		case <-r.shutdown:
 			logger.Get().Info("router is shutting down")
-			return nil
+			return
 		case update, ok := <-r.updates:
 			if !ok {
-				return nil
+				return
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), r.handlerTimeout)
@@ -207,6 +209,8 @@ func (r *Router) mapToCommandHandler(ctx context.Context, m *tg.Message) error {
 			return r.h.HandlePhoneNumberInput(ctx, m)
 		case domain.StateWaitingForDeliveryAddress:
 			return r.h.HandleDeliveryAddressInput(ctx, m)
+		case domain.StateWaitingForPromocode:
+			return r.h.HandlePromocodeInput(ctx, m)
 		case domain.StateDefault:
 			return ErrNoHandler
 		default:
@@ -251,10 +255,14 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 		return nil
 	case menuMakeOrderCallback:
 		return r.h.StartMakeOrderGuide(ctx, c.Message)
+	case myCartCallback:
+		return r.h.GetCart(ctx, chatID)
 	case menuCalculatorCallback:
 		return r.h.AskForCalculatorOrderType(ctx, chatID)
 	case calculateMoreCallback:
 		return r.h.AskForCalculatorOrderType(ctx, chatID)
+	case promocodeCallback:
+		return r.h.AskForPromocode(ctx, chatID)
 	case orderGuideStep0Callback:
 		return r.h.MakeOrderGuideStep1(ctx, chatID, msgID, callbackDataMsgIDs)
 	case orderGuideStep1Callback:

@@ -12,10 +12,11 @@ import (
 
 type Order[T domain.HouseholdOrder | domain.ClothingOrder] interface {
 	GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID) ([]T, error)
-	GetLast(ctx context.Context, customerID primitive.ObjectID) ([]T, error)
+	GetLast(ctx context.Context, customerID primitive.ObjectID) (T, error)
 	Save(ctx context.Context, order T) error
 	UpdateToPaid(ctx context.Context, customerID primitive.ObjectID, shortID string) error
 	GetFreeShortID(ctx context.Context) (string, error)
+	HasOnlyOneOrder(ctx context.Context, customerID primitive.ObjectID) (bool, error)
 }
 
 type HouseholdCategory interface {

@@ -20,7 +20,7 @@ func (s *AppTestSuite) TestHouseholdNew() {
 	s.Run("should add new category", func() {
 		title := f.StreetName()
 		url := fmt.Sprintf("/api/household/categories/new?title=%s", title)
-		req := testutil.NewJsonRequest(http.MethodPost, url, nil)
+		req := testutil.NewJsonRequestWithKey("abcd")(http.MethodPost, url, nil)
 		res, err := s.app.Test(req, -1)
 		require.NoError(err)
 		require.Equal(http.StatusCreated, res.StatusCode)
@@ -41,10 +41,10 @@ func (s *AppTestSuite) TestHouseholdNew() {
 	s.Run("should return all categories", func() {
 		ctx := context.Background()
 		for i := 0; i < 10; i++ {
-			require.NoError(s.householdCategoryService.New(ctx, f.Word(), true))
+			require.NoError(s.services.HouseholdCategory.New(ctx, f.Word(), true))
 		}
 		url := "/api/household/categories/all"
-		req := testutil.NewJsonRequest(http.MethodGet, url, nil)
+		req := testutil.NewJsonRequestWithKey("abcd")(http.MethodGet, url, nil)
 		res, err := s.app.Test(req, -1)
 		require.NoError(err)
 		var categories []domain.HouseholdCategory

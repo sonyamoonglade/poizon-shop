@@ -112,6 +112,7 @@ func (s *AppTestSuite) TestHandlerMakeOrder() {
 	})
 
 	t.Run("should check cart and return correct message because cart is fine", func(t *testing.T) {
+
 		var (
 			username   = f.Username()
 			telegramID = f.Int64()
@@ -180,6 +181,7 @@ func (s *AppTestSuite) TestHandlerMakeOrder() {
 	})
 
 	t.Run("should make order without discount because customer has no promocode", func(t *testing.T) {
+
 		var (
 			username   = f.Username()
 			telegramID = f.Int64()
@@ -194,20 +196,22 @@ func (s *AppTestSuite) TestHandlerMakeOrder() {
 			Rank:          0,
 			Products: []domain.HouseholdProduct{
 				{
-					ProductID:  primitive.NewObjectID(),
-					CategoryID: c1.CategoryID,
-					Name:       f.StreetName(),
-					ISBN:       f.BuzzWord(),
-					Price:      1223,
-					PriceGlob:  1231,
+					ProductID:   primitive.NewObjectID(),
+					CategoryID:  c1.CategoryID,
+					Name:        f.StreetName(),
+					ISBN:        f.BuzzWord(),
+					AvailableIn: &[]string{f.StreetName()},
+					Price:       1223,
+					PriceGlob:   1231,
 				},
 				{
-					ProductID:  primitive.NewObjectID(),
-					CategoryID: c1.CategoryID,
-					Name:       f.StreetName(),
-					ISBN:       f.BuzzWord(),
-					Price:      12235,
-					PriceGlob:  12315,
+					ProductID:   primitive.NewObjectID(),
+					CategoryID:  c1.CategoryID,
+					Name:        f.StreetName(),
+					ISBN:        f.BuzzWord(),
+					AvailableIn: &[]string{f.StreetName()},
+					Price:       12235,
+					PriceGlob:   12315,
 				},
 			},
 		})
@@ -252,18 +256,15 @@ func (s *AppTestSuite) TestHandlerMakeOrder() {
 			),
 		)
 		require.NoError(err)
-
-		orders, err := s.svc.HouseholdOrder.GetAllForCustomer(ctx, customer.CustomerID, domain.SourceHousehold)
-		require.NoError(err)
-		require.NotEmpty(orders)
-
-		created := orders[0]
+		created, err := s.svc.HouseholdOrder.GetLast(ctx, customer.CustomerID)
+		require.NotZero(created)
 
 		require.Equal(cartTotal, created.AmountRUB)
 		require.Equal(cartTotal, created.DiscountedAmount)
 		require.False(created.IsPaid)
 		require.False(created.IsApproved)
 		require.Equal(customer.Cart, created.Cart)
+
 	})
 
 	t.Run("should make order with discount because customer has promocode", func(t *testing.T) {
@@ -286,7 +287,9 @@ func (s *AppTestSuite) TestHandlerMakeOrder() {
 					Name:       f.StreetName(),
 					ISBN:       f.BuzzWord(),
 					Price:      1223,
-					PriceGlob:  1231,
+
+					AvailableIn: &[]string{f.StreetName()},
+					PriceGlob:   1231,
 				},
 				{
 					ProductID:  primitive.NewObjectID(),
@@ -294,7 +297,9 @@ func (s *AppTestSuite) TestHandlerMakeOrder() {
 					Name:       f.StreetName(),
 					ISBN:       f.BuzzWord(),
 					Price:      12235,
-					PriceGlob:  12315,
+
+					AvailableIn: &[]string{f.StreetName()},
+					PriceGlob:   12315,
 				},
 			},
 		})
@@ -354,11 +359,9 @@ func (s *AppTestSuite) TestHandlerMakeOrder() {
 		)
 		require.NoError(err)
 
-		orders, err := s.svc.HouseholdOrder.GetAllForCustomer(ctx, customer.CustomerID, domain.SourceHousehold)
+		created, err := s.svc.HouseholdOrder.GetLast(ctx, customer.CustomerID)
 		require.NoError(err)
-		require.NotEmpty(orders)
-
-		created := orders[0]
+		require.NotZero(created)
 
 		require.NotEqual(cartTotal, created.AmountRUB)
 		require.Equal(cartTotal, created.DiscountedAmount)
@@ -366,6 +369,7 @@ func (s *AppTestSuite) TestHandlerMakeOrder() {
 		require.False(created.IsPaid)
 		require.False(created.IsApproved)
 		require.Equal(customer.Cart, created.Cart)
+
 	})
 }
 

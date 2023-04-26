@@ -26,7 +26,7 @@ type ClothingCustomer interface {
 // todo: unify to generic customer interface!!
 type HouseholdCustomer interface {
 	GetByTelegramID(ctx context.Context, telegramID int64) (domain.HouseholdCustomer, error)
-	GetAllByPromocodeID(ctx context.Context, promocodeID primitive.ObjectID) ([]domain.ClothingCustomer, error)
+	GetAllByPromocodeID(ctx context.Context, promocodeID primitive.ObjectID) ([]domain.HouseholdCustomer, error)
 	All(ctx context.Context) ([]domain.HouseholdCustomer, error)
 	Save(ctx context.Context, c domain.HouseholdCustomer) error
 	UpdateState(ctx context.Context, telegramID int64, newState domain.State) error
@@ -37,7 +37,7 @@ type HouseholdCustomer interface {
 type Order[T domain.ClothingOrder | domain.HouseholdOrder] interface {
 	GetByShortID(ctx context.Context, shortID string) (T, error)
 	GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID) ([]T, error)
-	GetLast(ctx context.Context, customerID primitive.ObjectID) ([]T, error)
+	GetLast(ctx context.Context, customerID primitive.ObjectID) (T, error)
 	GetAll(ctx context.Context) ([]T, error)
 	Save(ctx context.Context, o T) error
 	Approve(ctx context.Context, orderID primitive.ObjectID) (T, error)
@@ -45,6 +45,7 @@ type Order[T domain.ClothingOrder | domain.HouseholdOrder] interface {
 	UpdateToPaid(ctx context.Context, customerID primitive.ObjectID, shortID string) error
 	ChangeStatus(ctx context.Context, dto dto.ChangeOrderStatusDTO) (T, error)
 	Delete(ctx context.Context, orderID primitive.ObjectID) error
+	CountOrders(ctx context.Context, customerID primitive.ObjectID) (int64, error)
 }
 
 type ClothingCatalog interface {

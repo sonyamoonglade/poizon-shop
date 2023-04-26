@@ -33,8 +33,10 @@ type RouteHandler interface {
 	Menu(ctx context.Context, chatID int64, deleteMsgID *int) error
 	Catalog(ctx context.Context, chatID int64, prevMsgID *int) error
 	MyOrders(ctx context.Context, chatID int64) error
+
 	AskForISBN(ctx context.Context, chatID int64) error
 	HandleProductByISBN(ctx context.Context, m *tg.Message) error
+
 	AskForPromocode(ctx context.Context, chatID int64) error
 	HandlePromocodeInput(ctx context.Context, m *tg.Message) error
 

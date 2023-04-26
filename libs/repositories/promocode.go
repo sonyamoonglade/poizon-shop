@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"domain"
 	"dto"
@@ -59,6 +60,7 @@ func (p promocodeRepo) Delete(ctx context.Context, promocodeID primitive.ObjectI
 }
 
 func (p promocodeRepo) Update(ctx context.Context, promocodeID primitive.ObjectID, dto dto.UpdatePromocodeDTO) error {
+	fmt.Println(*dto.Counters)
 	update := bson.M{}
 	if dto.Description != nil {
 		update["description"] = *dto.Description

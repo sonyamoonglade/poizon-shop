@@ -11,6 +11,11 @@ var ErrUnknownOrderType = errors.New("unknown order type")
 
 type OrderType int
 
+const (
+	OrderTypeExpress OrderType = iota + 1
+	OrderTypeNormal
+)
+
 func NewOrderTypeFromString(s string) (OrderType, error) {
 	parsed, err := strconv.Atoi(s)
 	if err != nil {
@@ -22,10 +27,9 @@ func NewOrderTypeFromString(s string) (OrderType, error) {
 	return 0, ErrUnknownOrderType
 }
 
-const (
-	OrderTypeExpress OrderType = iota + 1
-	OrderTypeNormal
-)
+func (o OrderType) IsExpress() bool {
+	return o == OrderTypeExpress
+}
 
 func (o OrderType) String() string {
 	return strconv.Itoa(int(o))

@@ -3,8 +3,7 @@ package domain
 import (
 	"time"
 
-	"functools"
-
+	fn "github.com/sonyamoonglade/go_func"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -31,30 +30,44 @@ func NewClothingOrder(
 	deliveryAddress string,
 	isExpress bool,
 	shortID string,
-	discount uint64,
 ) ClothingOrder {
 	type total struct {
 		rub, yuan uint64
 	}
 	var totals total
 
-	totals = functools.Reduce(func(t total, cartItem ClothingPosition) total {
+	totals = fn.Reduce(func(t total, cartItem ClothingPosition, _ int) total {
 		t.yuan += cartItem.PriceYUAN
 		t.rub += cartItem.PriceRUB
 		return t
-	}, customer.Cart, total{})
+	}, customer.Cart.Slice(), total{})
 
 	return ClothingOrder{
 		Customer:         customer,
 		ShortID:          shortID,
 		Cart:             customer.Cart,
 		AmountRUB:        totals.rub,
-		DiscountedAmount: totals.rub - discount,
 		AmountYUAN:       totals.yuan,
+		DiscountedAmount: totals.rub,
 		DeliveryAddress:  deliveryAddress,
 		IsExpress:        isExpress,
 		CreatedAt:        time.Now().UTC(),
 		Status:           StatusNotApproved,
 		Source:           SourceClothing,
 	}
+}
+
+func (c *ClothingOrder) UseDiscount(discount uint32) *ClothingOrder {
+	c.DiscountedAmount = fn.
+		Reduce(func(acc uint64, pos ClothingPosition, _ int) uint64 {
+			return acc + pos.PriceRUB - uint64(discount)
+		}, c.Cart.Slice(), 0)
+	return c
+}
+
+func (c ClothingOrder) GetComment() string {
+	if c.Comment != nil {
+		return *c.Comment
+	}
+	return defaultComment
 }

@@ -148,6 +148,10 @@ func (c *customerService[T, D]) Delete(ctx context.Context, customerID primitive
 	return c.clothingCustomerRepo.Delete(ctx, customerID)
 }
 
+func (c *customerService[T, D]) NullifyCatalogOffsets(ctx context.Context) error {
+	return c.clothingCustomerRepo.NullifyCatalogOffsets(ctx)
+}
+
 func (c *customerService[T, D]) isHousehold() bool {
 	zero := *new(T)
 	_, ok := any(zero).(domain.HouseholdCustomer)

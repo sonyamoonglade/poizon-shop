@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"time"
 
 	"domain"
 	"dto"
@@ -126,18 +127,27 @@ func (o *orderRepo[T]) GetAllForCustomer(ctx context.Context, customerID primiti
 	return orders, nil
 }
 
-func (o *orderRepo[T]) GetLast(ctx context.Context, customerID primitive.ObjectID) ([]T, error) {
-	opts := options.Find()
-	opts.SetSort(bson.M{"createdAt": -1}).SetLimit(1)
-	cur, err := o.orders.Find(ctx, bson.M{"customer._id": customerID}, opts)
-	if err != nil {
+func (o *orderRepo[T]) GetLast(ctx context.Context, customerID primitive.ObjectID) (T, error) {
+	options.FindOne().SetSort(bson.M{"createdAt": -1})
+	res := o.orders.FindOne(ctx, bson.M{"customer._id": customerID})
+	if err := res.Err(); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, domain.ErrOrderNotFound
+			return *new(T), domain.ErrOrderNotFound
 		}
-		return nil, err
+		return *new(T), err
 	}
-	var orders []T
-	return orders, cur.All(ctx, &orders)
+	var order T
+	if err := res.Decode(&order); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return *new(T), domain.ErrOrderNotFound
+		}
+		return *new(T), err
+	}
+	return order, nil
+}
+
+func (o *orderRepo[T]) CountOrders(ctx context.Context, customerID primitive.ObjectID) (int64, error) {
+	return o.orders.CountDocuments(ctx, bson.M{"customer._id": customerID}, options.Count().SetMaxTime(time.Second*5))
 }
 
 func (o *orderRepo[T]) findOneAndUpdate(ctx context.Context, filter, update any) (T, error) {

@@ -93,7 +93,12 @@ func (h *householdCustomerRepo) Update(ctx context.Context, customerID primitive
 	}
 
 	if dto.PromocodeID != nil {
-		update["promocodeId"] = *dto.PromocodeID
+		// For deletion
+		if dto.PromocodeID.IsZero() {
+			update["promocodeId"] = nil
+		} else {
+			update["promocodeId"] = *dto.PromocodeID
+		}
 	}
 
 	_, err := h.customers.UpdateByID(ctx, customerID, bson.M{"$set": update})
@@ -108,7 +113,7 @@ func (h *householdCustomerRepo) Delete(ctx context.Context, customerID primitive
 
 }
 
-func (h *householdCustomerRepo) GetAllByPromocodeID(ctx context.Context, promocodeID primitive.ObjectID) ([]domain.ClothingCustomer, error) {
+func (h *householdCustomerRepo) GetAllByPromocodeID(ctx context.Context, promocodeID primitive.ObjectID) ([]domain.HouseholdCustomer, error) {
 	cur, err := h.customers.Find(ctx, bson.M{"promocodeId": promocodeID})
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
@@ -117,7 +122,7 @@ func (h *householdCustomerRepo) GetAllByPromocodeID(ctx context.Context, promoco
 		return nil, err
 	}
 
-	var customers []domain.ClothingCustomer
+	var customers []domain.HouseholdCustomer
 	return customers, cur.All(ctx, &customers)
 }
 

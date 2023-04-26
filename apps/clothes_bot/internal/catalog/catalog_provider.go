@@ -38,32 +38,32 @@ func (c *CatalogProvider) HasPrev(offset uint) bool {
 	return offset > 0 && offset <= uint(len(c.items))
 }
 
-func (c *CatalogProvider) LoadNext(offset uint) domain.ClothingProduct {
+func (c *CatalogProvider) LoadNext(offset uint) (domain.ClothingProduct, bool) {
 	if !c.HasNext(offset) {
-		return domain.ClothingProduct{}
+		return domain.ClothingProduct{}, true
 	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.items[offset+1]
+	return c.items[offset+1], true
 }
 
-func (c *CatalogProvider) LoadPrev(offset uint) domain.ClothingProduct {
+func (c *CatalogProvider) LoadPrev(offset uint) (domain.ClothingProduct, bool) {
 	if !c.HasPrev(offset) {
-		return domain.ClothingProduct{}
+		return domain.ClothingProduct{}, false
 	}
 
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	return c.items[offset-1]
+	return c.items[offset-1], true
 }
 
-func (c *CatalogProvider) LoadFirst() domain.ClothingProduct {
+func (c *CatalogProvider) LoadFirst() (domain.ClothingProduct, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	if len(c.items) > 0 {
-		return c.items[0]
+		return c.items[0], true
 	}
-	return domain.ClothingProduct{}
+	return domain.ClothingProduct{}, false
 }
 
 func (c *CatalogProvider) LoadAt(offset uint) domain.ClothingProduct {

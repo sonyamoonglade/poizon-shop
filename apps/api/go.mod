@@ -6,6 +6,7 @@ require (
 	domain v0.0.0
 	github.com/brianvoe/gofakeit/v6 v6.20.2
 	github.com/gofiber/fiber/v2 v2.44.0
+	github.com/golang/mock v1.4.4
 	github.com/sonyamoonglade/s3-yandex-go v1.0.7
 	github.com/stretchr/testify v1.8.2
 	go.mongodb.org/mongo-driver v1.11.4

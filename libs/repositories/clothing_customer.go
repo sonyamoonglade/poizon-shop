@@ -106,7 +106,12 @@ func (c *clothingCustomerRepo) Update(ctx context.Context, customerID primitive.
 	}
 
 	if dto.PromocodeID != nil {
-		update["promocodeId"] = *dto.PromocodeID
+		// For deletion
+		if dto.PromocodeID.IsZero() {
+			update["promocodeId"] = nil
+		} else {
+			update["promocodeId"] = *dto.PromocodeID
+		}
 	}
 
 	_, err := c.customers.UpdateByID(ctx, customerID, bson.M{"$set": update})

@@ -10,27 +10,35 @@ import (
 )
 
 func (h *handler) GetCart(ctx context.Context, chatID int64) error {
-	var telegramID = chatID
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, chatID)
 	if err != nil {
 		return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
 	}
-
-	if len(customer.Cart) == 0 {
+	if customer.Cart.Empty() {
 		return h.emptyCart(chatID)
 	}
-	isExpressOrder := *customer.Meta.NextOrderType == domain.OrderTypeExpress
-	msg := tg.NewMessage(chatID, h.prepareCartPreview(customer.Cart, isExpressOrder))
-	msg.ReplyMarkup = cartPreviewButtons
 
+	isExpressOrder := customer.Meta.
+		NextOrderType.
+		IsExpress()
+
+	msg := tg.NewMessage(
+		chatID,
+		h.prepareCartPreview(
+			customer.Cart,
+			isExpressOrder,
+			customer.HasPromocode(),
+			customer.MustGetPromocode().GetClothingDiscount(),
+		),
+	)
+	msg.ReplyMarkup = cartPreviewButtons
 	return h.cleanSend(msg)
 }
 
 func (h *handler) EditCart(ctx context.Context, chatID int64, previewCartMsgID int) error {
 	var telegramID = chatID
 
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
 	}
@@ -43,7 +51,7 @@ func (h *handler) EditCart(ctx context.Context, chatID int64, previewCartMsgID i
 		State: &domain.StateWaitingForCartPositionToEdit,
 	}
 
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
 	buttons := prepareEditCartButtons(len(customer.Cart), previewCartMsgID)
@@ -52,18 +60,13 @@ func (h *handler) EditCart(ctx context.Context, chatID int64, previewCartMsgID i
 
 func (h *handler) RemoveCartPosition(ctx context.Context, chatID int64, callbackData int, originalMsgID, cartPreviewMsgID int) error {
 	var (
-		telegramID    = chatID
 		buttonClicked = callbackData - editCartRemovePositionOffset
 		cartIndex     = buttonClicked - 1
 	)
 
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForCartPositionToEdit, chatID); err != nil {
-		return err
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForCartPositionToEdit)
 	if err != nil {
-		return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
+		return fmt.Errorf("check required state: %w", err)
 	}
 
 	if buttonClicked > len(customer.Cart) {
@@ -75,12 +78,12 @@ func (h *handler) RemoveCartPosition(ctx context.Context, chatID int64, callback
 	updateDTO := dto.UpdateClothingCustomerDTO{
 		Cart: &customer.Cart,
 	}
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
 
 	// if customer has emptied cart
-	if len(customer.Cart) == 0 {
+	if customer.Cart.Empty() {
 		// delete edit buttons
 		if err := h.b.CleanRequest(tg.NewDeleteMessage(chatID, originalMsgID)); err != nil {
 			return fmt.Errorf("can't delete message: %w", err)
@@ -95,10 +98,15 @@ func (h *handler) RemoveCartPosition(ctx context.Context, chatID int64, callback
 	}
 
 	// edit original preview cart message and edit buttons
-	buttonsForNewCart := prepareEditCartButtons(len(customer.Cart), int(cartPreviewMsgID))
+	buttonsForNewCart := prepareEditCartButtons(len(customer.Cart), cartPreviewMsgID)
 
-	isExpressOrder := *customer.Meta.NextOrderType == domain.OrderTypeExpress
-	textForNewCart := h.prepareCartPreview(customer.Cart, isExpressOrder)
+	isExpressOrder := customer.Meta.NextOrderType.IsExpress()
+	textForNewCart := h.prepareCartPreview(
+		customer.Cart,
+		isExpressOrder,
+		customer.HasPromocode(),
+		customer.MustGetPromocode().GetClothingDiscount(),
+	)
 
 	updatePreviewText := tg.NewEditMessageText(chatID, int(cartPreviewMsgID), textForNewCart)
 	updatePreviewText.ReplyMarkup = &cartPreviewButtons
@@ -119,12 +127,26 @@ func (h *handler) emptyCart(chatID int64) error {
 	return h.sendWithKeyboard(chatID, "Ваша корзина пуста!", addPositionButtons)
 }
 
-func (h *handler) prepareCartPreview(cart domain.ClothingCart, isExpressOrder bool) string {
+func (h *handler) prepareCartPreview(cart domain.ClothingCart, isExpressOrder bool, discounted bool, discount uint32) string {
 	var out = getCartPreviewStartTemplate(len(cart), isExpressOrder)
 	var totalRub uint64
 	var totalYuan uint64
 	for n, cartItem := range cart {
-		positionText := getPositionTemplate(cartPositionPreviewArgs{
+		if discounted {
+			out += getDiscountedPositionTemplate(cartPositionPreviewDiscountedArgs{
+				n:           n + 1,
+				link:        cartItem.ShopLink,
+				size:        cartItem.Size,
+				discountRub: discount,
+				category:    string(cartItem.Category),
+				priceRub:    cartItem.PriceRUB,
+				priceYuan:   cartItem.PriceYUAN,
+			})
+			totalRub += cartItem.PriceRUB - uint64(discount)
+			totalYuan += cartItem.PriceYUAN
+			continue
+		}
+		out += getPositionTemplate(cartPositionPreviewArgs{
 			n:         n + 1,
 			link:      cartItem.ShopLink,
 			size:      cartItem.Size,
@@ -134,7 +156,6 @@ func (h *handler) prepareCartPreview(cart domain.ClothingCart, isExpressOrder bo
 		})
 		totalRub += cartItem.PriceRUB
 		totalYuan += cartItem.PriceYUAN
-		out += positionText
 	}
 	out += getCartPreviewEndTemplate(totalRub, totalYuan)
 	return out

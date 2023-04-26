@@ -58,6 +58,14 @@ func (o *orderService[T]) GetAllForCustomer(ctx context.Context, customerID prim
 	return o.repo.GetAllForCustomer(ctx, customerID)
 }
 
-func (o *orderService[T]) GetLast(ctx context.Context, customerID primitive.ObjectID) ([]T, error) {
+func (o *orderService[T]) GetLast(ctx context.Context, customerID primitive.ObjectID) (T, error) {
 	return o.repo.GetLast(ctx, customerID)
+}
+
+func (o *orderService[T]) HasOnlyOneOrder(ctx context.Context, customerID primitive.ObjectID) (bool, error) {
+	count, err := o.repo.CountOrders(ctx, customerID)
+	if err != nil {
+		return false, fmt.Errorf("count orders: %w", err)
+	}
+	return count == 1, nil
 }
