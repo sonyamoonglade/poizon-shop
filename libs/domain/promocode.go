@@ -37,6 +37,9 @@ func (p Promocode) getDiscount(source Source) uint32 {
 	if p.Discounts == nil {
 		return 0
 	}
+	if _, ok := p.Discounts[source]; !ok {
+		return 0
+	}
 	return p.Discounts[source]
 }
 
