@@ -113,7 +113,6 @@ func (h *handler) HandleCatalogNext(ctx context.Context, chatID int64, controlBu
 
 		return h.sendMessage(chatID, "Товар был удален. Открой каталог заново")
 	}
-	fmt.Println("asd")
 	// Increment the offset
 	customer.CatalogOffset++
 	return h.updateCatalog(ctx, chatID, thumbnailMsgIDs, controlButtonsMsgID, customer, next)
