@@ -20,7 +20,7 @@ scp -r -i ~/.ssh/vadim-shop deploy/* $USER@$IP:./build/clothing/
 echo "copying build folder"
 
 # stop existing session
-ssh -i ~/.ssh/vadim-shop $USER@$IP "kill -9 \$(pidof app)"
+ssh -i ~/.ssh/vadim-shop $USER@$IP "kill -9 \$(pidof clothing)"
 echo "stopped running process"
 
 rm -rf deploy
