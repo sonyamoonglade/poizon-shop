@@ -7,6 +7,7 @@ import (
 
 	"domain"
 	"dto"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -27,6 +28,19 @@ func (c *clothingCustomerRepo) Save(ctx context.Context, customer domain.Clothin
 		return err
 	}
 	return nil
+}
+
+func (c *clothingCustomerRepo) GetAllByPromocodeID(ctx context.Context, promocodeID primitive.ObjectID) ([]domain.ClothingCustomer, error) {
+	cur, err := c.customers.Find(ctx, bson.M{"promocodeId": promocodeID})
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, domain.ErrNoCustomers
+		}
+		return nil, err
+	}
+
+	var customers []domain.ClothingCustomer
+	return customers, cur.All(ctx, &customers)
 }
 
 func (c *clothingCustomerRepo) Delete(ctx context.Context, customerID primitive.ObjectID) error {
@@ -73,7 +87,6 @@ func (c *clothingCustomerRepo) Update(ctx context.Context, customerID primitive.
 	}
 
 	if dto.Meta != nil {
-
 		if dto.Meta.NextOrderType != nil {
 			update["meta.nextOrderType"] = dto.Meta.NextOrderType
 		}
@@ -90,6 +103,15 @@ func (c *clothingCustomerRepo) Update(ctx context.Context, customerID primitive.
 
 	if dto.CatalogOffset != nil {
 		update["catalogOffset"] = *dto.CatalogOffset
+	}
+
+	if dto.PromocodeID != nil {
+		// For deletion
+		if dto.PromocodeID.IsZero() {
+			update["promocodeId"] = nil
+		} else {
+			update["promocodeId"] = *dto.PromocodeID
+		}
 	}
 
 	_, err := c.customers.UpdateByID(ctx, customerID, bson.M{"$set": update})

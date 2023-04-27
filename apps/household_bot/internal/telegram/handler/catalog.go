@@ -2,47 +2,30 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 
 	"domain"
-	"functools"
+	fn "github.com/sonyamoonglade/go_func"
 	"household_bot/internal/telegram/buttons"
 	"household_bot/internal/telegram/callback"
 	"household_bot/internal/telegram/templates"
 	"household_bot/internal/telegram/tg_errors"
 	"household_bot/pkg/telegram"
 
-	fn "github.com/elliotchance/pie/v2"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, inStock bool) error {
-	categories, err := h.categoryRepo.GetAllByInStock(ctx, inStock)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "Categories",
-			CausedBy:    "GetAll",
-		})
+	categoryTitles := h.catalogProvider.GetActiveCategoryTitlesByInStock(inStock)
+	if categoryTitles == nil {
+		return h.sendMessage(chatID, "Категории отсутствуют")
 	}
-	if categories == nil {
-		return h.sendMessage(chatID, "no categories")
-	}
-
-	onlyActive := fn.
-		Of(categories).
-		Filter(func(c domain.HouseholdCategory) bool {
-			return c.Active
-		}).
-		Result
-	categoryTitles := fn.Map(onlyActive, func(c domain.HouseholdCategory) string {
-		return c.Title
-	})
 
 	// To prev step, reInject inStock
 	backButton := buttons.NewBackButton(callback.Catalog, nil, nil, &inStock)
-	text := fmt.Sprintf("Type: %s\nCategories", domain.InStockToString(inStock))
+	text := fmt.Sprintf("Тип: %s\nКатегории:", domain.InStockToString(inStock))
 	editMsg := tg.NewEditMessageText(chatID, prevMsgID, text)
 	keyboard := buttons.NewCategoryButtons(categoryTitles, callback.SelectCategory, inStock, backButton)
 	editMsg.ReplyMarkup = &keyboard
@@ -50,6 +33,7 @@ func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, i
 }
 
 func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int, args []string) error {
+	cTitle := args[0]
 	inStock, err := strconv.ParseBool(args[1])
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
@@ -59,26 +43,13 @@ func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int
 		})
 	}
 
-	cTitle := args[0]
-	category, err := h.categoryRepo.GetByTitle(ctx, cTitle, inStock)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "Subcategories",
-			CausedBy:    "GetByTitle",
-		})
-	}
+	subcategoryTitles := h.catalogProvider.GetSubcategoryTitles(cTitle, inStock)
 
-	var subcategoryTitles []string
-	for _, s := range category.Subcategories {
-		if s.Active {
-			subcategoryTitles = append(subcategoryTitles, s.Title)
-		}
-	}
 	cb := callback.CTypeOrder
 	if inStock {
 		cb = callback.CTypeInStock
 	}
+
 	// To prev step, reInject inStock and cTitle
 	backButton := buttons.NewBackButton(cb, &cTitle, nil, &inStock)
 	keyboard := buttons.NewSubcategoryButtons(
@@ -88,8 +59,9 @@ func (h *handler) Subcategories(ctx context.Context, chatID int64, prevMsgID int
 		inStock,
 		backButton,
 	)
+
 	// todo:into template
-	text := fmt.Sprintf("Type: %s\nCategory: %s\nSubcategories:", domain.InStockToString(inStock), cTitle)
+	text := fmt.Sprintf("Тип: %s\nКатегория: %s\nПроизводители:", domain.InStockToString(inStock), cTitle)
 	editMsg := tg.NewEditMessageText(chatID, prevMsgID, text)
 	editMsg.ReplyMarkup = &keyboard
 	return h.cleanSend(editMsg)
@@ -110,17 +82,8 @@ func (h *handler) Products(ctx context.Context, chatID int64, prevMsgID int, arg
 		})
 	}
 
-	// p, ok := h.catalogProvider.GetProductAt(cTitle, sTitle, 0)
-	// if !ok {
-	// 	return tg_errors.New(tg_errors.Config{
-	// 		OriginalErr: domain.ErrProductNotFound,
-	// 		Handler:     "Products",
-	// 		CausedBy:    "GetProductAt",
-	// 	})
-	// }
 	backButton := buttons.NewBackButton(callback.SelectCategory, &cTitle, nil, &inStock)
 	c, err := h.fetchProductsAndGetChattable(
-		ctx,
 		chatID,
 		true,
 		&prevMsgID,
@@ -168,68 +131,47 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 			CausedBy:    "ParseBool",
 		})
 	}
-	// Todo: replace with catalog provider
-	products, err := h.categoryRepo.GetProductsByCategoryAndSubcategory(ctx, cTitle, sTitle, inStock)
+
+	customer, err := h.customerService.GetByTelegramID(ctx, chatID)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "ProductCard",
-			CausedBy:    "GetProductsByCategoryAndSubcategory",
+			CausedBy:    "GetByTelegramID",
 		})
 	}
 
-	var p domain.HouseholdProduct
-	for _, product := range products {
-		if product.Name == productName {
-			p = product
+	product := h.catalogProvider.GetProduct(cTitle, sTitle, productName, inStock)
+	currentQuantity := fn.Reduce(func(acc int, el domain.HouseholdProduct, _ int) int {
+		if el.Name == productName {
+			acc += 1
 		}
-	}
-
-	photo := tg.NewPhoto(chatID, tg.FileURL(p.ImageURL))
-	photo.Caption = templates.HouseholdProductCaption(p)
-	photo.ParseMode = "markdown"
-	photo.ReplyMarkup = buttons.NewProductCardButtons(buttons.ProductCardButtonsArgs{
-		Cb:      callback.AddToCart,
-		CTitle:  cTitle,
-		STitle:  sTitle,
-		PName:   productName,
-		InStock: inStock,
+		return acc
+	}, customer.Cart.Slice(), 0)
+	keyboard := buttons.NewProductCardButtons(buttons.ProductCardButtonsArgs{
+		Cb:       callback.AddToCart,
+		CTitle:   cTitle,
+		STitle:   sTitle,
+		PName:    productName,
+		InStock:  inStock,
+		Quantity: currentQuantity,
 		Back: buttons.NewBackButton(callback.FromProductCardToProducts,
 			&cTitle,
 			&sTitle,
 			&inStock,
 		),
 	})
-
-	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateWaitingToAddToCart); err != nil {
+	if err := h.renderProductCard(ctx, chatID, product, customer, keyboard, inStock); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "ProductCard",
-			CausedBy:    "UpdateState",
+			CausedBy:    "renderProductCard",
 		})
 	}
-
-	return h.sendWithMessageID(photo, func(msgID int) error {
-		catalogMsg := telegram.CatalogMsg{
-			MsgID: msgID,
-		}
-		err := h.catalogMsgService.Save(ctx, catalogMsg)
-		if err != nil {
-			return tg_errors.New(tg_errors.Config{
-				OriginalErr: err,
-				Handler:     "ProductCard",
-				CausedBy:    "Save",
-			})
-		}
-		return nil
-	})
+	return nil
 }
 
-func (h *handler) ProductsNew(ctx context.Context,
-	chatID int64,
-	msgIDForDeletion int,
-	args []string,
-) error {
+func (h *handler) ProductsNew(ctx context.Context, chatID int64, msgIDForDeletion int, args []string) error {
 	var (
 		cTitle,
 		sTitle,
@@ -257,15 +199,7 @@ func (h *handler) ProductsNew(ctx context.Context,
 			CausedBy:    "ParseBool",
 		})
 	}
-	// p, ok := h.catalogProvider.GetProductAt(cTitle, sTitle, 0)
-	// if !ok {
-	// 	return tg_errors.New(tg_errors.Config{
-	// 		OriginalErr: domain.ErrProductNotFound,
-	// 		Handler:     "Products",
-	// 		CausedBy:    "GetProductAt",
-	// 	})
-	// }
-	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateDefault); err != nil {
+	if err := h.customerService.UpdateState(ctx, chatID, domain.StateDefault); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "ProductsNew",
@@ -275,7 +209,6 @@ func (h *handler) ProductsNew(ctx context.Context,
 
 	backButton := buttons.NewBackButton(callback.SelectCategory, &cTitle, nil, &inStock)
 	c, err := h.fetchProductsAndGetChattable(
-		ctx,
 		chatID,
 		false,
 		nil,
@@ -294,10 +227,14 @@ func (h *handler) ProductsNew(ctx context.Context,
 
 	return h.sendWithMessageID(c, func(msgID int) error {
 		catalogMsg := telegram.CatalogMsg{
-			MsgID: msgID,
+			MsgID:  msgID,
+			ChatID: chatID,
 		}
 		err := h.catalogMsgService.Save(ctx, catalogMsg)
 		if err != nil {
+			if errors.Is(err, telegram.ErrMessageAlreadyExists) {
+				return nil
+			}
 			return tg_errors.New(tg_errors.Config{
 				OriginalErr: err,
 				Handler:     "ProductsNew",
@@ -308,7 +245,7 @@ func (h *handler) ProductsNew(ctx context.Context,
 	})
 }
 
-func (h *handler) fetchProductsAndGetChattable(ctx context.Context,
+func (h *handler) fetchProductsAndGetChattable(
 	chatID int64,
 	edit bool,
 	editMsgID *int,
@@ -317,26 +254,19 @@ func (h *handler) fetchProductsAndGetChattable(ctx context.Context,
 	sTitle string,
 	inStock bool,
 ) (tg.Chattable, error) {
-	products, err := h.categoryRepo.GetProductsByCategoryAndSubcategory(ctx, cTitle, sTitle, inStock)
-	if err != nil {
-		return nil, tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "fetchProductsAndGetChattable",
-			CausedBy:    "GetProductsByCategoryAndSubcategory",
-		})
-	}
+	products := h.catalogProvider.GetProducts(cTitle, sTitle, inStock)
 	keyboard := buttons.NewProductsButtons(buttons.ProductButtonsArgs{
 		CTitle:  cTitle,
 		STitle:  sTitle,
 		Cb:      callback.SelectProduct,
 		InStock: inStock,
-		Names: functools.Map(func(p domain.HouseholdProduct, _ int) string {
+		Names: fn.Map(products, func(p domain.HouseholdProduct, _ int) string {
 			return p.Name
-		}, products),
+		}),
 		Back: backButton,
 	})
 	var c tg.Chattable
-	text := fmt.Sprintf("Type: %s\nCategory: %s\nSubcategory: %s\nProducts:", domain.InStockToString(inStock), cTitle, sTitle)
+	text := fmt.Sprintf("Тип: %s\nКатегория: %s\nПроизводитель: %s\nМодели:", domain.InStockToString(inStock), cTitle, sTitle)
 	if edit && editMsgID != nil {
 		m := tg.NewEditMessageText(chatID, *editMsgID, text)
 		m.ReplyMarkup = &keyboard
@@ -348,4 +278,41 @@ func (h *handler) fetchProductsAndGetChattable(ctx context.Context,
 		c = m
 	}
 	return c, nil
+}
+
+func (h *handler) renderProductCard(
+	ctx context.Context,
+	chatID int64,
+	p domain.HouseholdProduct,
+	customer domain.HouseholdCustomer,
+	keyboard tg.InlineKeyboardMarkup,
+	inStock bool,
+) error {
+	photo := tg.NewPhoto(chatID, tg.FileURL(p.ImageURL))
+	if customer.HasPromocode() {
+		promo, _ := customer.GetPromocode()
+		photo.Caption = templates.HouseholdProductCaptionWithDiscount(p, promo.GetHouseholdDiscount(), inStock)
+	} else {
+		photo.Caption = templates.HouseholdProductCaption(p, inStock)
+	}
+	photo.ParseMode = "markdown"
+	photo.ReplyMarkup = keyboard
+	return h.sendWithMessageID(photo, func(msgID int) error {
+		catalogMsg := telegram.CatalogMsg{
+			MsgID:  msgID,
+			ChatID: chatID,
+		}
+		err := h.catalogMsgService.Save(ctx, catalogMsg)
+		if err != nil {
+			if errors.Is(err, telegram.ErrMessageAlreadyExists) {
+				return nil
+			}
+			return tg_errors.New(tg_errors.Config{
+				OriginalErr: err,
+				Handler:     "renderProductCard",
+				CausedBy:    "Save",
+			})
+		}
+		return nil
+	})
 }

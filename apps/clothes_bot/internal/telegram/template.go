@@ -31,7 +31,7 @@ const (
 
 	askForButtonColorTemplate = "Выбери цвет кнопки\n(влияет на условия доставки 🚚 и цену 🥬 в дальнейшем)"
 
-	askForSizeTemplate = "Шаг 1. Выбери размер 📏\nНапример: L или 54\nЕсли товар безразмерный, то отправь #"
+	askForSizeTemplate = "Выбери размер 📏\nНапример: L или 54\nЕсли товар безразмерный, то отправь #"
 
 	askForPriceTemplate = "Отправь стоимость товара в юанях ¥\n(указана на выбранной кнопке) 💴"
 
@@ -52,6 +52,29 @@ const (
 
 	deliveryOnlyToMoscowTemplate = "Стоимость указана с учетом доставки товара из Китая до Москвы, доставка в другие " +
 		"города и районы России просчитывается и оплачивается отдельно в ТК СДЕК 🚚"
+
+	askForPromocodeTemplate = "Введи промокод: "
+	promoWarnTemplate       = "Осторожно! Промокод можно ввести только 1 раз!"
+	promoUseSuccessTemplate = "Промокод %s успешно применен!\nСумма скидки на все товары составляет %d ₽"
+
+	productCardTemplate = "Товар: <a href=\"%s\">%s</a>\n" +
+		"Размер(ы): %s\n" +
+		"Есть в городе: %s\n" +
+		"Количество товара: %d\n\n" +
+		"Стоимость в рублях: %d ₽"
+
+	productCardDiscountedTemplate = "Товар: <a href=\"%s\">%s</a>\n" +
+		"Размер(ы): %s\n" +
+		"Есть в городе: %s\n" +
+		"Количество товара: %d\n\n" +
+		"Стоимость в рублях: %d ₽\n" +
+		"Стоимость в рублях с учетом скидки: %d ₽"
+
+	cartPositionDiscounted = "%d. Ссылка: %s\nРазмер: %s\nКатегория: %s\n\nСтоимость в юанях: %d ¥\nСтоимость в рублях: " +
+		"%d ₽\nСтоимость с учетом скидки: %d ₽\n\n"
+
+	singleOrderDiscountedPreview = "Заказ: %s\nТип доставки: %s\nАдрес доставки: %s\n\nОплачен: %s\nПодтвержден админом:" +
+		" %s\nСтатус заказа: %s\n\nТоваров в корзине: %d\nСумма в юанях: %d ¥\nСумма в рублях: %d ₽\nСумма в рублях с учетом скидки: %d ₽\n\nКомментарий админа: %s\n\nТовар(ы):\n"
 )
 
 type templates struct {
@@ -61,7 +84,6 @@ type templates struct {
 	CartPreviewStartFMT string `json:"cartPreviewStart,omitempty"`
 	CartPreviewEndFMT   string `json:"cartPreviewEnd,omitempty"`
 	CartPositionFMT     string `json:"cartPosition,omitempty"`
-	CalculatorOutput    string `json:"calculatorOutput,omitempty"`
 	OrderStart          string `json:"order,omitempty"`
 	OrderEnd            string `json:"orderEnd,omitempty"`
 	AfterPaid           string `json:"afterPaid,omitempty"`
@@ -131,14 +153,42 @@ func getPositionTemplate(args cartPositionPreviewArgs) string {
 	if args.size == "#" {
 		args.size = "без размера"
 	}
-	return fmt.Sprintf(t.CartPositionFMT, args.n, args.link, args.size, args.category, args.priceRub, args.priceYuan)
-}
-func getCartPreviewEndTemplate(totalRub uint64, totalYuan uint64) string {
-	return fmt.Sprintf(t.CartPreviewEndFMT, totalRub, totalYuan)
+	return fmt.Sprintf(
+		t.CartPositionFMT,
+		args.n,
+		args.link,
+		args.size,
+		args.category,
+		args.priceYuan,
+		args.priceRub,
+	)
 }
 
-func getCalculatorOutput(price uint64) string {
-	return fmt.Sprintf(t.CalculatorOutput, price)
+type cartPositionPreviewDiscountedArgs struct {
+	n           int
+	link        string
+	size        string
+	priceRub    uint64
+	discountRub uint32
+	category    string
+	priceYuan   uint64
+}
+
+func getDiscountedPositionTemplate(args cartPositionPreviewDiscountedArgs) string {
+	return fmt.Sprintf(
+		cartPositionDiscounted,
+		args.n,
+		args.link,
+		args.size,
+		args.category,
+		args.priceYuan,
+		args.priceRub,
+		args.priceRub-uint64(args.discountRub),
+	)
+}
+
+func getCartPreviewEndTemplate(totalRub uint64, totalYuan uint64) string {
+	return fmt.Sprintf(t.CartPreviewEndFMT, totalRub, totalYuan)
 }
 
 type orderStartArgs struct {
@@ -158,7 +208,16 @@ func getOrderStart(args orderStartArgs) string {
 		expressStr = "Обычный"
 	}
 
-	return fmt.Sprintf(t.OrderStart, args.fullName, args.shortOrderID, expressStr, args.fullName, args.phoneNumber, args.deliveryAddress, args.nCartItems)
+	return fmt.Sprintf(
+		t.OrderStart,
+		args.fullName,
+		args.shortOrderID,
+		expressStr,
+		args.fullName,
+		args.phoneNumber,
+		args.deliveryAddress,
+		args.nCartItems,
+	)
 }
 
 func getOrderEnd(amountRub uint64) string {
@@ -181,51 +240,102 @@ func getMyOrdersStart(fullname string) string {
 	return fmt.Sprintf(t.MyOrdersStart, fullname)
 }
 
-type singleOrderArgs struct {
-	shortID                       string
-	isExpress, isPaid, isApproved bool
-	cartLen                       int
-	deliveryAddress               string
-	status                        domain.Status
-	comment                       *string
-	totalYuan                     uint64
-	totalRub                      uint64
-}
-
-func getSingleOrderPreview(args singleOrderArgs) string {
+func getSingleOrderPreview(order domain.ClothingOrder, discounted bool) string {
 	var (
 		expressStr  string
 		paidStr     string
 		approvedStr string
 		commentStr  string
 	)
-	if args.isExpress {
+	if order.IsExpress {
 		expressStr = "Экспресс"
 	} else {
 		expressStr = "Обычный"
 	}
 
-	if args.isPaid {
+	if order.IsPaid {
 		paidStr = yes
 	} else {
 		paidStr = no
 	}
 
-	if args.isApproved {
+	if order.IsApproved {
 		approvedStr = yes
 	} else {
 		approvedStr = no
 	}
 
-	if args.comment == nil {
-		commentStr = "временно отсутствует"
-	} else {
-		commentStr = *args.comment
+	commentStr = order.GetComment()
+
+	if discounted {
+		return fmt.Sprintf(
+			singleOrderDiscountedPreview,
+			order.ShortID,
+			expressStr,
+			order.DeliveryAddress,
+			paidStr,
+			approvedStr,
+			domain.StatusTexts[order.Status],
+			order.Cart.Size(),
+			order.AmountYUAN,
+			order.AmountRUB,
+			order.DiscountedAmount,
+			commentStr,
+		)
 	}
 
-	return fmt.Sprintf(t.SingleOrderPreview, args.shortID, expressStr, args.deliveryAddress, paidStr, approvedStr, domain.StatusTexts[args.status], args.cartLen, args.totalRub, args.totalYuan, commentStr)
+	return fmt.Sprintf(
+		t.SingleOrderPreview,
+		order.ShortID,
+		expressStr,
+		order.DeliveryAddress,
+		paidStr,
+		approvedStr,
+		domain.StatusTexts[order.Status],
+		order.Cart.Size(),
+		order.AmountYUAN,
+		order.AmountRUB,
+		commentStr,
+	)
 }
 
 func getStartTemplate(username string) string {
 	return fmt.Sprintf(t.Start, username)
+}
+
+func promocodeWarning() string {
+	return promoWarnTemplate
+}
+
+func askForPromocode() string {
+	return askForPromocodeTemplate
+}
+
+func promocodeUseSuccess(shortID string, discount uint32) string {
+	return fmt.Sprintf(promoUseSuccessTemplate, shortID, discount)
+}
+
+func productCard(p domain.ClothingProduct, discounted bool, discount *uint32) string {
+	if discounted && discount != nil {
+		return fmt.Sprintf(
+			productCardDiscountedTemplate,
+			p.ShopLink,
+			p.Title,
+			p.GetSizesPretty(),
+			p.GetCitiesPretty(),
+			p.Quantity,
+			p.PriceRUB,
+			p.PriceRUB-uint64(*discount),
+		)
+	}
+
+	return fmt.Sprintf(
+		productCardTemplate,
+		p.ShopLink,
+		p.Title,
+		p.GetSizesPretty(),
+		p.GetCitiesPretty(),
+		p.Quantity,
+		p.PriceRUB,
+	)
 }

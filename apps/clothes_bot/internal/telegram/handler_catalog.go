@@ -2,12 +2,14 @@ package telegram
 
 import (
 	"context"
-	"reflect"
+	"fmt"
 
 	"domain"
 	"dto"
 	"functools"
+
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/google/go-cmp/cmp"
 )
 
 func (h *handler) Catalog(ctx context.Context, chatID int64) error {
@@ -16,7 +18,7 @@ func (h *handler) Catalog(ctx context.Context, chatID int64) error {
 		first      bool
 	)
 
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		return err
 	}
@@ -27,12 +29,23 @@ func (h *handler) Catalog(ctx context.Context, chatID int64) error {
 
 	// Load appropriate item
 	item := h.catalogProvider.LoadAt(customer.CatalogOffset)
+	if cmp.Equal(item, domain.ClothingProduct{}) {
+		return h.sendMessage(chatID, "Каталог отсутствует")
+	}
 
+	var (
+		discount   = new(uint32)
+		discounted bool
+	)
+	if customer.HasPromocode() {
+		discounted = true
+		*discount = customer.MustGetPromocode().GetClothingDiscount()
+	}
 	thumbnails := functools.Map(func(url string, i int) interface{} {
 		thumbnail := tg.NewInputMediaPhoto(tg.FileURL(url))
 		if !first {
 			// add caption to first element
-			thumbnail.Caption = item.GetCaption()
+			thumbnail.Caption = productCard(item, discounted, discount)
 			first = true
 		}
 		thumbnail.ParseMode = parseModeHTML
@@ -65,15 +78,16 @@ func (h *handler) Catalog(ctx context.Context, chatID int64) error {
 	}
 
 	if hasNext {
-		next := h.catalogProvider.LoadNext(currentOffset)
+		next, _ := h.catalogProvider.LoadNext(currentOffset)
 		btnArgs.nextTitle = next.Title
 	}
 
 	if hasPrev {
-		prev := h.catalogProvider.LoadPrev(currentOffset)
+		prev, _ := h.catalogProvider.LoadPrev(currentOffset)
 		btnArgs.prevTitle = prev.Title
 	}
 
+	// Do not send buttons
 	if !hasPrev && !hasNext {
 		return nil
 	}
@@ -85,29 +99,47 @@ func (h *handler) Catalog(ctx context.Context, chatID int64) error {
 // No need to call h.catalogProvider.HasNext. See h.Catalog impl
 func (h *handler) HandleCatalogNext(ctx context.Context, chatID int64, controlButtonsMsgID int64, thumbnailMsgIDs []int) error {
 	var telegramID = chatID
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		return err
 	}
+	next, ok := h.catalogProvider.LoadNext(customer.CatalogOffset)
+	if !ok {
+		next, ok = h.catalogProvider.LoadFirst()
+		customer.NullifyCatalogOffset()
 
-	next := h.catalogProvider.LoadNext(customer.CatalogOffset)
+		if !ok {
+			return h.sendMessage(chatID, "Каталог отсутствует")
+		}
+
+		return h.sendMessage(chatID, "Товар был удален. Открой каталог заново")
+	}
 	// Increment the offset
 	customer.CatalogOffset++
-
 	return h.updateCatalog(ctx, chatID, thumbnailMsgIDs, controlButtonsMsgID, customer, next)
 }
 
 func (h *handler) HandleCatalogPrev(ctx context.Context, chatID int64, controlButtonsMsgID int64, thumbnailMsgIDs []int) error {
 	var telegramID = chatID
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		return err
 	}
+	prev, ok := h.catalogProvider.LoadPrev(customer.CatalogOffset)
+	if !ok {
+		prev, ok = h.catalogProvider.LoadFirst()
+		customer.NullifyCatalogOffset()
 
-	prev := h.catalogProvider.LoadPrev(customer.CatalogOffset)
+		if !ok {
+			return h.sendMessage(chatID, "Каталог отсутствует")
+		}
+		if err := h.sendMessage(chatID, "Видимо каталог обновили. Перемещаем тебя в начало!"); err != nil {
+			return err
+		}
+		return h.updateCatalog(ctx, chatID, thumbnailMsgIDs, controlButtonsMsgID, customer, prev)
+	}
 	// Decrement the offset
 	customer.CatalogOffset--
-
 	return h.updateCatalog(ctx, chatID, thumbnailMsgIDs, controlButtonsMsgID, customer, prev)
 }
 
@@ -115,11 +147,22 @@ func (h *handler) updateCatalog(ctx context.Context,
 	chatID int64,
 	thumbnailMsgIDs []int,
 	controlButtonsMsgID int64,
-	customer domain.Customer,
+	customer domain.ClothingCustomer,
 	item domain.ClothingProduct) error {
 	// Null
-	if reflect.DeepEqual(domain.ClothingProduct{}, item) {
-		return nil
+	if cmp.Equal(item, domain.ClothingProduct{}) {
+		if err := h.deleteBulk(chatID, append(thumbnailMsgIDs, int(controlButtonsMsgID))...); err != nil {
+			return fmt.Errorf("delete bulk: %w", err)
+		}
+		return h.sendWithKeyboard(chatID, "Данный товар больше не существует. Зайди в каталог заново", prepareMenuButtons(false))
+	}
+	var (
+		discount   = new(uint32)
+		discounted bool
+	)
+	if customer.HasPromocode() {
+		discounted = true
+		*discount = customer.MustGetPromocode().GetClothingDiscount()
 	}
 	// Get next item images
 	var first bool
@@ -127,7 +170,7 @@ func (h *handler) updateCatalog(ctx context.Context,
 		thumbnail := tg.NewInputMediaPhoto(tg.FileURL(url))
 		if !first {
 			// add caption to first element
-			thumbnail.Caption = item.GetCaption()
+			thumbnail.Caption = productCard(item, discounted, discount)
 			first = true
 		}
 		thumbnail.ParseMode = parseModeHTML
@@ -140,7 +183,7 @@ func (h *handler) updateCatalog(ctx context.Context,
 		editOneMedia := &tg.EditMessageMediaConfig{
 			BaseEdit: tg.BaseEdit{
 				ChatID:    chatID,
-				MessageID: int(thumbMsgID),
+				MessageID: thumbMsgID,
 			},
 			Media: thumbnails[i],
 		}
@@ -154,7 +197,7 @@ func (h *handler) updateCatalog(ctx context.Context,
 	updateDTO := dto.UpdateClothingCustomerDTO{
 		CatalogOffset: &customer.CatalogOffset,
 	}
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return err
 	}
 
@@ -171,12 +214,12 @@ func (h *handler) updateCatalog(ctx context.Context,
 		msgIDs:  sentMsgIDs,
 	}
 	if hasNext {
-		next := h.catalogProvider.LoadNext(customer.CatalogOffset)
+		next, _ := h.catalogProvider.LoadNext(customer.CatalogOffset)
 		btnArgs.nextTitle = next.Title
 	}
 
 	if hasPrev {
-		prev := h.catalogProvider.LoadPrev(customer.CatalogOffset)
+		prev, _ := h.catalogProvider.LoadPrev(customer.CatalogOffset)
 		btnArgs.prevTitle = prev.Title
 	}
 

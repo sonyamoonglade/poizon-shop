@@ -7,6 +7,7 @@ import (
 	"domain"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"go.uber.org/multierr"
+	"household_bot/internal/telegram/tg_errors"
 )
 
 func (h *handler) sendWithKeyboard(chatID int64, text string, keyboard interface{}) error {
@@ -37,15 +38,19 @@ func (h *handler) sendBulk(cs ...tg.Chattable) error {
 	return errors
 }
 
-func (h *handler) checkRequiredState(ctx context.Context, telegramID int64, want domain.State) error {
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+func (h *handler) checkRequiredState(ctx context.Context, telegramID int64, want domain.State) (domain.HouseholdCustomer, error) {
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
-		return fmt.Errorf("checkRequiredState: %w", err)
+		return domain.HouseholdCustomer{}, tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "checkRequiredState",
+			CausedBy:    "GetByTelegramID",
+		})
 	}
 	if customer.State != want {
-		return ErrInvalidState
+		return domain.HouseholdCustomer{}, ErrInvalidState
 	}
-	return nil
+	return customer, nil
 }
 
 func (h *handler) sendMessage(chatID int64, text string) error {

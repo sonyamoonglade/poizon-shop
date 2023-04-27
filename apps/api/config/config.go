@@ -18,6 +18,12 @@ type AppConfig struct {
 	Redis struct {
 		Addr string
 	}
+
+	Uploader struct {
+		Bucket    string
+		Owner     string
+		S3BaseURL string
+	}
 }
 
 func ReadConfig() (AppConfig, error) {
@@ -46,6 +52,31 @@ func ReadConfig() (AppConfig, error) {
 		return AppConfig{}, fmt.Errorf("missing REDIS_ADDR env")
 	}
 
+	bucket := os.Getenv("BUCKET")
+	if bucket == "" {
+		return AppConfig{}, fmt.Errorf("missing BUCKET env")
+	}
+
+	owner := os.Getenv("OWNER")
+	if owner == "" {
+		return AppConfig{}, fmt.Errorf("missing OWNER env")
+	}
+
+	s3BaseURL := os.Getenv("S3_BASE_URL")
+	if s3BaseURL == "" {
+		return AppConfig{}, fmt.Errorf("missing S3_BASE_URL env")
+	}
+
+	_, ok := os.LookupEnv("AWS_ACCESS_KEY_ID")
+	if !ok {
+		return AppConfig{}, fmt.Errorf("missing AWS_ACCESS_KEY_ID env")
+	}
+
+	_, ok = os.LookupEnv("AWS_SECRET_ACCESS_KEY")
+	if !ok {
+		return AppConfig{}, fmt.Errorf("missing AWS_SECRET_ACCESS_KEY env")
+	}
+
 	return AppConfig{
 		Database: struct {
 			URI  string
@@ -65,6 +96,15 @@ func ReadConfig() (AppConfig, error) {
 			Addr string
 		}{
 			Addr: redisAddr,
+		},
+		Uploader: struct {
+			Bucket    string
+			Owner     string
+			S3BaseURL string
+		}{
+			Bucket:    bucket,
+			Owner:     owner,
+			S3BaseURL: s3BaseURL,
 		},
 	}, nil
 }

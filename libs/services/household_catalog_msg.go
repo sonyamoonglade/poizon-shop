@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/multierr"
@@ -65,7 +66,15 @@ func (h householdCatalogMsgService) WipeAll(ctx context.Context, catalogDeleter 
 				err := catalogDeleter.DeleteFromCatalog(m)
 				// Dont delete from db
 				if err != nil {
-					logger.Get().Error("catalog deleter dit not delete msg", zap.Int("msgID", m.MsgID))
+					const msgNotFound = "message to delete not found"
+					// Fine case for us, just delete in DB
+					if strings.Contains(err.Error(), msgNotFound) {
+						if err := h.repo.Delete(ctx, m.ID); err != nil {
+							errors = multierr.Append(errors, fmt.Errorf("delete: %w", err))
+						}
+						return
+					}
+					logger.Get().Error("catalog deleter dit not delete msg", zap.Int("msgID", m.MsgID), zap.Error(err))
 					return
 				}
 

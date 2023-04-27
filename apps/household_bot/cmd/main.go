@@ -11,8 +11,7 @@ import (
 	"time"
 
 	"domain"
-	"redis"
-
+	"go.uber.org/zap"
 	"household_bot/config"
 	"household_bot/internal/catalog"
 	"household_bot/internal/telegram/bot"
@@ -20,10 +19,10 @@ import (
 	"household_bot/internal/telegram/router"
 	"logger"
 	"onlineshop/database"
+	"redis"
 	"repositories"
 	"services"
-
-	"go.uber.org/zap"
+	"usecase"
 )
 
 func main() {
@@ -73,9 +72,20 @@ func run() error {
 	}
 	catalogProvider.Load(initialCatalog)
 
-	orderService := services.NewHouseholdOrderService(repos.HouseholdOrder)
-	catalogMsgService := services.NewHouseholdCatalogMsgService(repos.HouseholdCatalogMsg, mongo)
-	tgHandler := handler.NewHandler(tgBot, repos.Rate, repos, catalogProvider, orderService, catalogMsgService)
+	svc := services.NewServices(repos, mongo)
+	makeOrderUsecase := usecase.NewHouseholdMakeOrderUsecase(repos.Promocode, svc.HouseholdOrder, svc.HouseholdCustomer)
+	tgHandler := handler.NewHandlerWithConstructor(handler.Constructor{
+		Bot:               tgBot,
+		RateProvider:      repos.Rate,
+		PromocodeRepo:     repos.Promocode,
+		CatalogProvider:   catalogProvider,
+		OrderService:      svc.HouseholdOrder,
+		CategoryService:   svc.HouseholdCategory,
+		CatalogMsgService: svc.HouseholdCatalogMsg,
+		CustomerService:   svc.HouseholdCustomer,
+		MakeOrderUsecase:  makeOrderUsecase,
+	},
+	)
 
 	tgRouter := router.NewRouter(
 		tgBot.GetUpdates(),
@@ -84,48 +94,43 @@ func run() error {
 		cfg.Bot.HandlerTimeout,
 	)
 
-	if production {
+	client := redis.NewClient(cfg.Redis.Addr)
+	bus := redis.NewBus[[]domain.HouseholdCategory](client)
 
-		client := redis.NewClient(cfg.Redis.Addr)
-		bus := redis.NewBus[[]domain.HouseholdCategory](client)
+	redCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-		redCtx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		onCatalogUpdate := func(items []domain.HouseholdCategory) error {
-			catalogProvider.Load(items)
-			return nil
-		}
-		redisErrorHandler := func(topic string, err error) {
-			logger.Get().Error("redis error", zap.Error(err))
-		}
-		go bus.SubscribeToTopicWithCallback(
-			redCtx,
-			redis.HouseholdCatalogTopic,
-			onCatalogUpdate,
-			redisErrorHandler,
-		)
-
-		go bus.SubscribeToTopicWithCallback(
-			redCtx,
-			redis.HouseholdWipeCatalogTopic,
-			func(_ []domain.HouseholdCategory) error {
-				return tgHandler.WipeCatalogs(redCtx)
-			},
-			redisErrorHandler,
-		)
+	onCatalogUpdate := func(items []domain.HouseholdCategory) error {
+		catalogProvider.Load(items)
+		return nil
 	}
-
-	if err := tgRouter.Bootstrap(); err != nil {
-		return err
+	redisErrorHandler := func(topic string, err error) {
+		logger.Get().Error("redis error", zap.Error(err))
 	}
+	go bus.SubscribeToTopicWithCallback(
+		redCtx,
+		redis.HouseholdCatalogTopic,
+		onCatalogUpdate,
+		redisErrorHandler,
+	)
+
+	go bus.SubscribeToTopicWithCallback(
+		redCtx,
+		redis.HouseholdWipeCatalogTopic,
+		func(_ []domain.HouseholdCategory) error {
+			return tgHandler.WipeCatalogs(redCtx)
+		},
+		redisErrorHandler,
+	)
+
+	go tgRouter.Bootstrap()
 
 	exitChan := make(chan os.Signal, 1)
 	signal.Notify(exitChan, os.Interrupt, syscall.SIGINT)
 
 	// Graceful shutdown
 	<-exitChan
-
+	logger.Get().Info("graceful shutdown")
 	return mongo.Close(context.Background())
 }
 

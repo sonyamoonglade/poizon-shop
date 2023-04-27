@@ -68,7 +68,7 @@ func (r *householdCategoryRepo) Update(ctx context.Context, categoryID primitive
 					subcategory.Products[ip].ProductID = primitive.NewObjectID()
 				}
 				if product.CategoryID.IsZero() {
-					product.CategoryID = categoryID
+					subcategory.Products[ip].CategoryID = categoryID
 				}
 			}
 		}
@@ -132,6 +132,7 @@ func (r *householdCategoryRepo) GetAllByInStock(ctx context.Context, inStock boo
 	if err := cur.All(ctx, &categories); err != nil {
 		return nil, fmt.Errorf("cursor all: %w", err)
 	}
+
 	return categories, nil
 }
 

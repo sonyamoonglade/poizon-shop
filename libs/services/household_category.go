@@ -3,16 +3,14 @@ package services
 import (
 	"context"
 	"fmt"
-	"functools"
 
 	"domain"
 	"dto"
+	"functools"
+	fn "github.com/sonyamoonglade/go_func"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"onlineshop/database"
 	"repositories"
-
-	fn "github.com/elliotchance/pie/v2"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type householdCategoryService struct {
@@ -27,18 +25,15 @@ func NewHouseholdCategoryService(repo repositories.HouseholdCategory, t database
 	}
 }
 
-func (h *householdCategoryService) New(
-	ctx context.Context,
-	title string,
-	inStock bool) error {
+func (h *householdCategoryService) New(ctx context.Context, title string, inStock bool) error {
 	category := domain.NewHouseholdCategory(title, inStock)
 	return h.transactor.WithTransaction(ctx, func(tx context.Context) error {
-		rank, err := h.repo.GetTopRank(ctx, inStock)
+		rank, err := h.repo.GetTopRank(tx, inStock)
 		if err != nil {
 			return fmt.Errorf("get top rank: %w", err)
 		}
 		category.SetRank(rank)
-		if err := h.repo.Save(ctx, category); err != nil {
+		if err := h.repo.Save(tx, category); err != nil {
 			return fmt.Errorf("new: %w", err)
 		}
 		return nil
@@ -47,11 +42,11 @@ func (h *householdCategoryService) New(
 
 func (h *householdCategoryService) Delete(ctx context.Context, categoryID primitive.ObjectID) error {
 	return h.transactor.WithTransaction(ctx, func(tx context.Context) error {
-		category, err := h.repo.GetByID(ctx, categoryID)
+		category, err := h.repo.GetByID(tx, categoryID)
 		if err != nil {
 			return fmt.Errorf("get by id: %w", err)
 		}
-		currentCategories, err := h.repo.GetAllByInStock(ctx, category.InStock)
+		currentCategories, err := h.repo.GetAllByInStock(tx, category.InStock)
 		if err != nil {
 			return fmt.Errorf("get all: %w", err)
 		}
@@ -75,18 +70,20 @@ func (h *householdCategoryService) GetByID(ctx context.Context, categoryID primi
 }
 
 // tx - transaction
-func (h *householdCategoryService) fixCategoriesRanks(
-	tx context.Context,
-	categoryID primitive.ObjectID,
-	categories []domain.HouseholdCategory,
-) error {
+func (h *householdCategoryService) fixCategoriesRanks(tx context.Context, categoryID primitive.ObjectID, categories []domain.HouseholdCategory) error {
 	categoriesIter := fn.Of(categories)
-	idx := categoriesIter.FindFirstUsing(func(c domain.HouseholdCategory) bool {
-		return c.CategoryID == categoryID
-	})
-	categories = categoriesIter.Filter(func(c domain.HouseholdCategory) bool {
-		return c.CategoryID != categoryID
-	}).Result
+	idx := categoriesIter.
+		IndexOf(func(c domain.HouseholdCategory) bool {
+			return c.CategoryID == categoryID
+		})
+	categories = categoriesIter.
+		Filter(func(c domain.HouseholdCategory) bool {
+			return c.CategoryID != categoryID
+		}).Result
+
+	if err := h.repo.Delete(tx, categoryID); err != nil {
+		return fmt.Errorf("delete: %w", err)
+	}
 
 	for i := idx; i < len(categories); i++ {
 		categories[i].Rank--
@@ -98,26 +95,18 @@ func (h *householdCategoryService) fixCategoriesRanks(
 		}
 	}
 
-	if err := h.repo.Delete(tx, categoryID); err != nil {
-		return fmt.Errorf("delete: %w", err)
-	}
-
 	return nil
 }
 
-func (h *householdCategoryService) CheckIfAllProductsExist(
-	ctx context.Context,
-	productIDs []primitive.ObjectID,
-	inStock bool,
-) (bool, error) {
+func (h *householdCategoryService) CheckIfAllProductsExist(ctx context.Context, cart []domain.HouseholdProduct, inStock bool) (bool, domain.HouseholdProduct, error) {
 	categories, err := h.repo.GetAllByInStock(ctx, inStock)
 	if err != nil {
-		return false, fmt.Errorf("get all by in stock: :%w", err)
+		return false, domain.HouseholdProduct{}, fmt.Errorf("get all by in stock: :%w", err)
 	}
 	// Combine all products into one big array
 	allProductsUnflat := fn.Map(
 		categories,
-		func(c domain.HouseholdCategory) []domain.HouseholdProduct {
+		func(c domain.HouseholdCategory, _ int) []domain.HouseholdProduct {
 			reduceFunc := func(
 				acc []domain.HouseholdProduct,
 				el domain.Subcategory,
@@ -126,25 +115,35 @@ func (h *householdCategoryService) CheckIfAllProductsExist(
 			}
 			return functools.Reduce(reduceFunc, c.Subcategories, nil)
 		})
-
-	return doAllExist(productIDs, fn.Flat(allProductsUnflat)), nil
+	ok, missingProducts := doAllExist(cart, fn.Flat(allProductsUnflat))
+	return ok, missingProducts, nil
 }
 
-func doAllExist(
-	idsInCart []primitive.ObjectID,
-	allProducts []domain.HouseholdProduct,
-) bool {
-	reduceFunc := func(acc int, el domain.HouseholdProduct) int {
-		idx := fn.
-			Of(idsInCart).
-			FindFirstUsing(func(id primitive.ObjectID) bool {
-				return id == el.ProductID
-			})
-		if idx == -1 {
-			return 0
-		}
-		return acc + 1
-	}
-	c := functools.Reduce(reduceFunc, allProducts, 0)
-	return c == len(idsInCart)
+func (h *householdCategoryService) GetProductsByCategoryAndSubcategory(ctx context.Context, cTitle, sTitle string, inStock bool) ([]domain.HouseholdProduct, error) {
+	return h.repo.GetProductsByCategoryAndSubcategory(ctx, cTitle, sTitle, inStock)
+}
+
+func (h *householdCategoryService) GetByTitle(ctx context.Context, title string, inStock bool) (domain.HouseholdCategory, error) {
+	return h.repo.GetByTitle(ctx, title, inStock)
+}
+
+func doAllExist(cart []domain.HouseholdProduct, allProducts []domain.HouseholdProduct) (bool, domain.HouseholdProduct) {
+	var missing domain.HouseholdProduct
+	ok := fn.
+		Of(cart).
+		All(func(cartProduct domain.HouseholdProduct) bool {
+			foundIdx := fn.
+				Of(allProducts).
+				IndexOf(func(product domain.HouseholdProduct) bool {
+					return cartProduct.ProductID == product.ProductID
+				})
+
+			if foundIdx == -1 {
+				missing = cartProduct
+				return false
+			}
+
+			return true
+		})
+	return ok, missing
 }

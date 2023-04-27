@@ -13,7 +13,7 @@ const (
 )
 
 var (
-	ErrNoApiKey      = errors.New("no api key")
+	ErrNoApiKey      = errors.New("missing api key")
 	ErrInvalidApiKey = errors.New("invalid api key")
 )
 
@@ -24,12 +24,12 @@ func NewAPIKeyMiddleware(key string) fiber.Handler {
 
 		if !ok {
 			return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
-				"error": ErrNoApiKey,
+				"error": ErrNoApiKey.Error(),
 			})
 		}
 		if strings.TrimSpace(candidate) != key {
 			return c.Status(http.StatusForbidden).JSON(fiber.Map{
-				"error": ErrInvalidApiKey,
+				"error": ErrInvalidApiKey.Error(),
 			})
 		}
 

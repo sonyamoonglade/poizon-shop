@@ -3,7 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
-	"logger"
+	"time"
 
 	"domain"
 	"dto"
@@ -124,8 +124,30 @@ func (o *orderRepo[T]) GetAllForCustomer(ctx context.Context, customerID primiti
 	if err := res.All(ctx, &orders); err != nil {
 		return nil, err
 	}
-	logger.Get().Sugar().Debugf("cust: %s\ngot orders: %v\n", customerID.String(), orders)
 	return orders, nil
+}
+
+func (o *orderRepo[T]) GetLast(ctx context.Context, customerID primitive.ObjectID) (T, error) {
+	options.FindOne().SetSort(bson.M{"createdAt": -1})
+	res := o.orders.FindOne(ctx, bson.M{"customer._id": customerID})
+	if err := res.Err(); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return *new(T), domain.ErrOrderNotFound
+		}
+		return *new(T), err
+	}
+	var order T
+	if err := res.Decode(&order); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return *new(T), domain.ErrOrderNotFound
+		}
+		return *new(T), err
+	}
+	return order, nil
+}
+
+func (o *orderRepo[T]) CountOrders(ctx context.Context, customerID primitive.ObjectID) (int64, error) {
+	return o.orders.CountDocuments(ctx, bson.M{"customer._id": customerID}, options.Count().SetMaxTime(time.Second*5))
 }
 
 func (o *orderRepo[T]) findOneAndUpdate(ctx context.Context, filter, update any) (T, error) {

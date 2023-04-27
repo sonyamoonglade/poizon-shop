@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"domain"
-
 	"household_bot/internal/telegram/callback"
 	"household_bot/internal/telegram/tg_errors"
 	"logger"
@@ -22,10 +21,24 @@ var (
 	ErrNoHandler = errors.New("no handler was found")
 )
 
+type AddToCartSource int
+
+const (
+	SourceISBNSearch AddToCartSource = iota + 1
+	SourceCatalog
+)
+
 type RouteHandler interface {
 	Start(ctx context.Context, message *tg.Message) error
-	Menu(ctx context.Context, chatID int64) error
+	Menu(ctx context.Context, chatID int64, deleteMsgID *int) error
 	Catalog(ctx context.Context, chatID int64, prevMsgID *int) error
+	MyOrders(ctx context.Context, chatID int64) error
+
+	AskForISBN(ctx context.Context, chatID int64) error
+	HandleProductByISBN(ctx context.Context, m *tg.Message) error
+
+	AskForPromocode(ctx context.Context, chatID int64) error
+	HandlePromocodeInput(ctx context.Context, m *tg.Message) error
 
 	GetCart(ctx context.Context, chatID int64) error
 	EditCart(ctx context.Context, chatID int64, cartMsgID int) error
@@ -36,13 +49,16 @@ type RouteHandler interface {
 	ProductsNew(ctx context.Context, chatID int64, msgIDForDeletion int, args []string) error
 	Products(ctx context.Context, chatID int64, prevMsgID int, args []string) error
 	ProductCard(ctx context.Context, chatID int64, prevMsgID int, args []string) error
-	AddToCart(ctx context.Context, chatID int64, args []string) error
+	AddToCart(ctx context.Context, chatID int64, prevMsgID int, args []string, source AddToCartSource) error
 
 	AskForFIO(ctx context.Context, chatID int64) error
 	HandleFIOInput(ctx context.Context, m *tg.Message) error
 	HandlePhoneNumberInput(ctx context.Context, m *tg.Message) error
 	HandleDeliveryAddressInput(ctx context.Context, m *tg.Message) error
 	HandlePayment(ctx context.Context, c *tg.CallbackQuery, args []string) error
+
+	FAQ(ctx context.Context, chatID int64) error
+	GetFAQAnswer(ctx context.Context, chatID int64, args []string) error
 
 	AnswerCallback(c *tg.CallbackQuery) error
 	Sorry(chatID int64) error
@@ -73,16 +89,15 @@ func NewRouter(updates <-chan tg.Update, h RouteHandler, s StateProvider, timeou
 	}
 }
 
-func (r *Router) Bootstrap() error {
+func (r *Router) Bootstrap() {
 	logger.Get().Info("router is listening for updates")
 	for {
 		select {
 		case <-r.shutdown:
 			logger.Get().Info("router is shutting down")
-			return nil
 		case update, ok := <-r.updates:
 			if !ok {
-				return nil
+				return
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), r.timeout)
@@ -141,7 +156,7 @@ func (r *Router) mapToCommandHandler(ctx context.Context, m *tg.Message) error {
 	case cmd(Start):
 		return r.handler.Start(ctx, m)
 	case cmd(Menu), cmd(Menu2):
-		return r.handler.Menu(ctx, chatID)
+		return r.handler.Menu(ctx, chatID, nil)
 	default:
 		state, err := r.stateProvider.GetState(ctx, chatID)
 		if err != nil {
@@ -158,6 +173,10 @@ func (r *Router) mapToCommandHandler(ctx context.Context, m *tg.Message) error {
 			return r.handler.HandlePhoneNumberInput(ctx, m)
 		case domain.StateWaitingForDeliveryAddress:
 			return r.handler.HandleDeliveryAddressInput(ctx, m)
+		case domain.StateWaitingForISBN:
+			return r.handler.HandleProductByISBN(ctx, m)
+		case domain.StateWaitingForPromocode:
+			return r.handler.HandlePromocodeInput(ctx, m)
 		default:
 			return ErrNoHandler
 		}
@@ -189,10 +208,20 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 	switch intCallback {
 	case callback.NoOpCallback:
 		return nil
+	case callback.Menu:
+		return r.handler.Menu(ctx, chatID, &msgID)
 	case callback.Catalog:
 		return r.handler.Catalog(ctx, chatID, &msgID)
 	case callback.MyCart:
 		return r.handler.GetCart(ctx, chatID)
+	case callback.MyOrders:
+		return r.handler.MyOrders(ctx, chatID)
+	case callback.GetProductByISBN:
+		return r.handler.AskForISBN(ctx, chatID)
+	case callback.Faq:
+		return r.handler.FAQ(ctx, chatID)
+	case callback.GetFaqAnswer:
+		return r.handler.GetFAQAnswer(ctx, chatID, parsedArgs)
 	case callback.CTypeInStock:
 		return r.handler.Categories(ctx, chatID, msgID, true)
 	case callback.CTypeOrder:
@@ -206,11 +235,15 @@ func (r *Router) mapToCallbackHandler(ctx context.Context, c *tg.CallbackQuery) 
 	case callback.SelectProduct:
 		return r.handler.ProductCard(ctx, chatID, msgID, parsedArgs)
 	case callback.AddToCart:
-		return r.handler.AddToCart(ctx, chatID, parsedArgs)
+		return r.handler.AddToCart(ctx, chatID, msgID, parsedArgs, SourceCatalog)
+	case callback.AddToCartByISBN:
+		return r.handler.AddToCart(ctx, chatID, msgID, parsedArgs, SourceISBNSearch)
 	case callback.EditCart:
 		return r.handler.EditCart(ctx, chatID, msgID)
 	case callback.DeletePositionFromCart:
 		return r.handler.DeletePositionFromCart(ctx, chatID, msgID, parsedArgs)
+	case callback.Promocode:
+		return r.handler.AskForPromocode(ctx, chatID)
 	case callback.MakeOrder:
 		// Initial step to make order
 		return r.handler.AskForFIO(ctx, chatID)
@@ -247,12 +280,8 @@ func (r *Router) handleError(ctx context.Context, err error, u tg.Update) {
 	var telegramError *tg_errors.Error
 
 	if errors.As(err, &telegramError) {
-		errAsJson, err := telegramError.ToJSON()
-		if err != nil {
-			logger.Get().Error("telegramError.ToJSON", zap.Error(err))
-		}
 		logger.Get().Error("error in handler occurred",
-			zap.Any("error", errAsJson),
+			zap.String("error", telegramError.String()),
 			zap.String("from", from),
 			zap.Int64("telegramId", telegramID),
 		)

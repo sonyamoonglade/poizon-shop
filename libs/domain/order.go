@@ -11,6 +11,11 @@ var ErrUnknownOrderType = errors.New("unknown order type")
 
 type OrderType int
 
+const (
+	OrderTypeExpress OrderType = iota + 1
+	OrderTypeNormal
+)
+
 func NewOrderTypeFromString(s string) (OrderType, error) {
 	parsed, err := strconv.Atoi(s)
 	if err != nil {
@@ -22,10 +27,9 @@ func NewOrderTypeFromString(s string) (OrderType, error) {
 	return 0, ErrUnknownOrderType
 }
 
-const (
-	OrderTypeExpress OrderType = iota + 1
-	OrderTypeNormal
-)
+func (o OrderType) IsExpress() bool {
+	return o == OrderTypeExpress
+}
 
 func (o OrderType) String() string {
 	return strconv.Itoa(int(o))
@@ -47,6 +51,11 @@ func (o OrderType) AsHumanString() string {
 }
 
 type Status int
+
+func IsValidOrderStatus(s Status) bool {
+	_, ok := StatusTexts[s]
+	return ok
+}
 
 const (
 	StatusNotApproved Status = iota + 1
@@ -76,21 +85,29 @@ var (
 )
 
 type Source struct {
-	V string
+	V string `json:"v" bson:"v"`
 }
+
+var (
+	c               = "clothing"
+	h               = "household"
+	SourceNone      = Source{"none"}
+	SourceClothing  = Source{c}
+	SourceHousehold = Source{h}
+)
 
 func (s Source) String() string {
 	return s.V
 }
 
-var (
-	SourceClothing  = Source{"Clothing"}
-	SourceHousehold = Source{"Household"}
-)
+func SourceFromString(s string) Source {
+	if s == c {
+		return SourceClothing
+	} else if s == h {
+		return SourceHousehold
 
-func IsValidOrderStatus(s Status) bool {
-	_, ok := StatusTexts[s]
-	return ok
+	}
+	return SourceNone
 }
 
 type formula func(x uint64, rate float64) (rub uint64)

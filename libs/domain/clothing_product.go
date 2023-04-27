@@ -27,16 +27,7 @@ type ClothingProduct struct {
 	PriceRUB        uint64             `json:"priceRub" bson:"priceRub"`
 }
 
-func (c *ClothingProduct) GetCaption() string {
-	template := "Товар: <a href=\"%s\">%s</a>\n" +
-		"Размер(ы): %s\n" +
-		"Есть в городе: %s\n" +
-		"Количество товара: %d\n\n" +
-		"Стоимость в рублях: %d ₽"
-	return fmt.Sprintf(template, c.ShopLink, c.Title, c.getSizes(), c.getCities(), c.Quantity, c.PriceRUB)
-}
-
-func (c *ClothingProduct) getSizes() string {
+func (c *ClothingProduct) GetSizesPretty() string {
 	var out string
 	for i, size := range c.AvailableSizes {
 		// last
@@ -49,7 +40,7 @@ func (c *ClothingProduct) getSizes() string {
 	return out
 }
 
-func (c *ClothingProduct) getCities() string {
+func (c *ClothingProduct) GetCitiesPretty() string {
 	return strings.Join(c.AvailableInCity, "; ")
 }
 

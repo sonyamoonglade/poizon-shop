@@ -31,7 +31,7 @@ func (h *handler) StartMakeOrderGuide(ctx context.Context, m *tg.Message) error 
 		return err
 	}
 
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		return err
 	}
@@ -41,7 +41,7 @@ func (h *handler) StartMakeOrderGuide(ctx context.Context, m *tg.Message) error 
 		return h.askForCategory(ctx, chatID)
 	}
 
-	if err := h.customerRepo.UpdateState(ctx, telegramID, domain.StateWaitingForOrderType); err != nil {
+	if err := h.customerService.UpdateState(ctx, telegramID, domain.StateWaitingForOrderType); err != nil {
 		return err
 	}
 

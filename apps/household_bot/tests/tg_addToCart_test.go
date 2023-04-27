@@ -2,10 +2,17 @@ package tests
 
 import (
 	"context"
+	"strconv"
+	"testing"
+
 	"domain"
 	f "github.com/brianvoe/gofakeit/v6"
+	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/golang/mock/gomock"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"strconv"
+	"household_bot/internal/telegram/router"
+	"household_bot/internal/telegram/templates"
+	mock_handler "household_bot/mocks"
 )
 
 func (s *AppTestSuite) TestHandlerAddToCart() {
@@ -14,11 +21,12 @@ func (s *AppTestSuite) TestHandlerAddToCart() {
 		telegramID = f.Int64()
 		username   = f.Username()
 		ctx        = context.Background()
+		t          = s.T()
 	)
 
-	s.Run("should not add because customer has added"+
+	t.Run("should not add because customer has added"+
 		"item with category (inStock=false), but trying to add"+
-		"product with category(inStock=true)", func() {
+		"product with category(inStock=true)", func(t *testing.T) {
 
 		// Product from this category is already added to cart (in stock)
 		c1 := domain.NewHouseholdCategory(f.Word(), true)
@@ -68,7 +76,6 @@ func (s *AppTestSuite) TestHandlerAddToCart() {
 		require.NoError(err)
 
 		customer := domain.NewHouseholdCustomer(telegramID, username)
-		customer.State = domain.StateWaitingToAddToCart
 		// Initially has this product in cart
 		customer.Cart.Add(c1.Subcategories[0].Products[0])
 		err = s.repositories.HouseholdCustomer.Save(ctx, customer)
@@ -82,7 +89,29 @@ func (s *AppTestSuite) TestHandlerAddToCart() {
 			pName      = c2.Subcategories[0].Products[0].Name
 		)
 		expectedArgs := []string{cTitle, sTitle, inStockStr, pName}
-		err = s.tghandler.AddToCart(ctx, telegramID, expectedArgs)
+
+		// Mocking bot
+		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
+		mb := mock_handler.NewMockBot(ctrl)
+		mb.EXPECT().
+			Send(gomock.Any()).
+			DoAndReturn(func(args any) (tg.Message, error) {
+				m := args.(tg.MessageConfig)
+				require.Equal(templates.TryAddWithInvalidInStock(c2.InStock, c1.InStock), m.Text)
+				return tg.Message{}, nil
+			}).
+			Times(1)
+		s.replaceBotInHandler(mb)
+		// --
+
+		t.Cleanup(func() {
+			s.repositories.HouseholdCustomer.Delete(ctx, customer.CustomerID)
+			s.repositories.HouseholdCategory.Delete(ctx, c1.CategoryID)
+			s.repositories.HouseholdCategory.Delete(ctx, c2.CategoryID)
+		})
+
+		err = s.tghandler.AddToCart(ctx, telegramID, 1, expectedArgs, router.SourceCatalog)
 		require.NoError(err)
 
 		customer, err = s.repositories.HouseholdCustomer.GetByTelegramID(ctx, telegramID)
@@ -91,9 +120,6 @@ func (s *AppTestSuite) TestHandlerAddToCart() {
 		// Second product not added
 		require.True(len(customer.Cart) == 1)
 
-		s.repositories.HouseholdCustomer.Delete(ctx, customer.CustomerID)
-		s.repositories.HouseholdCategory.Delete(ctx, c1.CategoryID)
-		s.repositories.HouseholdCategory.Delete(ctx, c2.CategoryID)
 	})
 
 }

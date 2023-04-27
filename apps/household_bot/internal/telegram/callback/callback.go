@@ -10,10 +10,14 @@ type Callback int
 
 const (
 	NoOpCallback Callback = iota
+	Menu
 	Catalog
 	MyOrders
+	GetProductByISBN
 	MyCart
+	Promocode
 	Faq
+	GetFaqAnswer
 	CTypeOrder
 	CTypeInStock
 	SelectCategory
@@ -21,6 +25,7 @@ const (
 	SelectProduct
 	FromProductCardToProducts
 	AddToCart
+	AddToCartByISBN
 	EditCart
 	DeletePositionFromCart
 	MakeOrder
@@ -33,8 +38,8 @@ func (c Callback) string() string {
 }
 
 const (
-	dataPrefix        = "d-"
-	rawCallbackPrefix = "c-"
+	dataPrefix        = "d"
+	rawCallbackPrefix = "c"
 )
 
 func Inject(cb Callback, values ...string) string {
@@ -43,20 +48,20 @@ func Inject(cb Callback, values ...string) string {
 	}
 	out := dataPrefix + cb.string() + ";" + strings.Join(values, ";")
 	if len(out) > 64 {
-		return NoOpCallback.string()
+		return rawCallbackPrefix + NoOpCallback.string()
 	}
 	return out
 }
 
 func ParseButtonData(data string) (Callback, []string, error) {
 	if data[0] == rawCallbackPrefix[0] {
-		cb, err := parse(data[2:])
+		cb, err := parse(data[1:])
 		if err != nil {
 			return -1, nil, fmt.Errorf("callback parse: %w", err)
 		}
 		return cb, nil, nil
 	}
-	values := strings.Split(data[2:], ";")
+	values := strings.Split(data[1:], ";")
 	if len(values) == 0 {
 		return -1, nil, fmt.Errorf("invalid callback data")
 	}

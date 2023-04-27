@@ -13,8 +13,11 @@ import (
 	"clothes_bot/config"
 	"clothes_bot/internal/catalog"
 	"clothes_bot/internal/telegram"
+	"domain"
+	"go.uber.org/zap"
 	"logger"
 	"onlineshop/database"
+	"redis"
 	"repositories"
 	"services"
 )
@@ -52,7 +55,7 @@ func run() error {
 
 	catalogProvider := catalog.NewCatalogProvider()
 
-	repos := repositories.NewRepositories(mongo, catalog.MakeUpdateOnChangeFunc(catalogProvider), nil)
+	repos := repositories.NewRepositories(mongo, nil, nil)
 	initialCatalog, err := repos.ClothingCatalog.GetCatalog(ctx)
 	if err != nil {
 		return fmt.Errorf("error getting initial catalog: %w", err)
@@ -71,22 +74,55 @@ func run() error {
 		return fmt.Errorf("can't load templates: %w", err)
 	}
 
-	orderService := services.NewOrderService(repos.ClothingOrder)
+	svc := services.NewServices(repos, mongo)
 
-	handler := telegram.NewHandler(bot,
-		repos.ClothingCustomer,
-		orderService,
+	handler := telegram.NewHandler(
+		bot,
+		svc.ClothingCustomer,
+		svc.ClothingOrder,
 		repos.Rate,
-		catalogProvider)
+		catalogProvider,
+		repos.Promocode,
+	)
 
-	router := telegram.NewRouter(bot.GetUpdates(),
+	router := telegram.NewRouter(
+		bot.GetUpdates(),
 		handler,
 		repos.ClothingCustomer,
 		cfg.Bot.HandlerTimeout)
 
-	if err := router.Bootstrap(); err != nil {
-		return err
+	client := redis.NewClient(cfg.Redis.Addr)
+	bus := redis.NewBus[[]domain.ClothingProduct](client)
+
+	redCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	onCatalogUpdate := func(items []domain.ClothingProduct) error {
+		fmt.Println("loading: ", items)
+		catalogProvider.Load(items)
+		return nil
 	}
+	redisErrorHandler := func(topic string, err error) {
+		logger.Get().Error("redis error", zap.Error(err))
+	}
+
+	go bus.SubscribeToTopicWithCallback(
+		redCtx,
+		redis.ClothingCatalogTopic,
+		onCatalogUpdate,
+		redisErrorHandler,
+	)
+
+	//go bus.SubscribeToTopicWithCallback(
+	//	redCtx,
+	//	redis.HouseholdWipeCatalogTopic,
+	//	func(_ []domain.HouseholdCategory) error {
+	//		return handler.WipeCatalogs(redCtx)
+	//	},
+	//	redisErrorHandler,
+	//)
+
+	go router.Bootstrap()
 
 	exitChan := make(chan os.Signal, 1)
 	signal.Notify(exitChan, os.Interrupt, syscall.SIGINT)

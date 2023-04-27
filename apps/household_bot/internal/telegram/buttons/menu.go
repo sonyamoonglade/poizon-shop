@@ -1,23 +1,30 @@
 package buttons
 
 import (
-	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"household_bot/internal/telegram/callback"
 	"household_bot/internal/telegram/router"
+
+	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 var (
-	Menu        = menu()
 	Start       = start()
 	CatalogType = catalogType()
 	AddPosition = addPosition()
 	MakeOrder   = makeOrder()
 )
 
-func menu() tg.InlineKeyboardMarkup {
-	return tg.NewInlineKeyboardMarkup(
+func Menu(withPromo bool) tg.InlineKeyboardMarkup {
+	rows := [][]tg.InlineKeyboardButton{
 		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Каталог", callback.Inject(callback.Catalog)),
+		),
+		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Найти по артикулу", callback.Inject(callback.GetProductByISBN)),
+		),
+
+		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Посмотреть корзину", callback.Inject(callback.MyCart)),
 		),
 		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Вопросы", callback.Inject(callback.Faq)),
@@ -25,10 +32,13 @@ func menu() tg.InlineKeyboardMarkup {
 		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Мои заказы", callback.Inject(callback.MyOrders)),
 		),
-		tg.NewInlineKeyboardRow(
-			tg.NewInlineKeyboardButtonData("Посмотреть корзину", callback.Inject(callback.MyCart)),
-		),
-	)
+	}
+	if withPromo {
+		rows = append(rows, tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Ввести промокод", callback.Inject(callback.Promocode)),
+		))
+	}
+	return tg.NewInlineKeyboardMarkup(rows...)
 }
 
 func start() tg.ReplyKeyboardMarkup {
@@ -51,8 +61,12 @@ func catalogType() tg.InlineKeyboardMarkup {
 func addPosition() tg.InlineKeyboardMarkup {
 	return tg.NewInlineKeyboardMarkup(
 		tg.NewInlineKeyboardRow(
+			tg.NewInlineKeyboardButtonData("Найти по артикулу", callback.Inject(callback.GetProductByISBN)),
+		),
+		tg.NewInlineKeyboardRow(
 			tg.NewInlineKeyboardButtonData("Добавить позицию", callback.Inject(callback.Catalog)),
-		))
+		),
+	)
 }
 
 func makeOrder() tg.InlineKeyboardMarkup {

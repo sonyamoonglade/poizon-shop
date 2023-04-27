@@ -5,20 +5,20 @@ IP=$(echo $VM_IP)
 USER=aalexandrovich
 
 mkdir deploy
-GOOS=$OS GOARCH=$ARCH go build -o ./deploy/app cmd/app/main.go
-cp templates.json ./deploy
-cp -r videos ./deploy
+GOOS=$OS GOARCH=$ARCH go build -o ./deploy/household cmd/main.go
 echo "building..."
 
-# remove old files
-ssh -i ~/.ssh/vadim-shop $USER@$IP "rm -rf ~/build"
+cp ./scripts/run.sh ./deploy/run.sh
 
-# transfer build folder 
-scp -r -i ~/.ssh/vadim-shop deploy $USER@$IP:./build/
-echo "copying build folder"
+# remove old binary
+ssh -i ~/.ssh/vadim-shop $USER@$IP "rm -rf ~/build/household/household ~/build/household/run.sh"
+
+# transfer binary 
+scp -r -i ~/.ssh/vadim-shop deploy/* $USER@$IP:./build/household/
+echo "deploying build folder"
 
 # stop existing session
-ssh -i ~/.ssh/vadim-shop $USER@$IP "kill -9 \$(pidof app)"
-echo "stopped running process"
+ssh -i ~/.ssh/vadim-shop $USER@$IP "kill -9 \$(pidof household)"
+echo "stopped running household process"
 
 rm -rf deploy

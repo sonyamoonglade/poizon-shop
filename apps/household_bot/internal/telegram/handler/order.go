@@ -7,17 +7,85 @@ import (
 
 	"domain"
 	"dto"
+	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"household_bot/internal/telegram/buttons"
 	"household_bot/internal/telegram/callback"
 	"household_bot/internal/telegram/templates"
 	"household_bot/internal/telegram/tg_errors"
-
-	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"utils/ptr"
 )
 
 func (h *handler) AskForFIO(ctx context.Context, chatID int64) error {
-	var telegramID = chatID
-	if err := h.customerRepo.UpdateState(ctx, telegramID, domain.StateWaitingForFIO); err != nil {
+	telegramID := chatID
+	// Beforehand check the cart for validity
+	if err := h.sendMessage(chatID, templates.CheckingCart()); err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AskForFIO",
+			CausedBy:    "sendMessage",
+		})
+	}
+
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AskForFIO",
+			CausedBy:    "GetByTelegramID",
+		})
+	}
+
+	// Perform a *long* check that checks whether all products in cart exist
+	first, _ := customer.Cart.First()
+	someCategoryID := first.CategoryID
+
+	category, err := h.categoryService.GetByID(ctx, someCategoryID)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AskForFIO",
+			CausedBy:    "GetByID",
+		})
+	}
+
+	ok, missingProduct, err := h.categoryService.CheckIfAllProductsExist(ctx, customer.Cart, category.InStock)
+	if err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AskForFIO",
+			CausedBy:    "CheckIfAllProductsExist",
+		})
+	}
+
+	if !ok {
+		err := h.sendWithKeyboard(
+			chatID,
+			templates.ProductNotFound(
+				missingProduct.Name,
+				missingProduct.ISBN,
+			),
+			buttons.GotoCart,
+		)
+
+		if err != nil {
+			return tg_errors.New(tg_errors.Config{
+				OriginalErr: err,
+				Handler:     "AskForFIO",
+				CausedBy:    "sendMessage",
+			})
+		}
+		return nil
+	}
+
+	if err := h.sendMessage(chatID, "Все хорошо, можешь создавать заказ"); err != nil {
+		return tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "AskForFIO",
+			CausedBy:    "sendMessage",
+		})
+	}
+
+	if err := h.customerService.UpdateState(ctx, telegramID, domain.StateWaitingForFIO); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "askForFIO",
@@ -29,25 +97,15 @@ func (h *handler) AskForFIO(ctx context.Context, chatID int64) error {
 
 func (h *handler) HandleFIOInput(ctx context.Context, m *tg.Message) error {
 	var (
-		chatID     = m.From.ID
-		telegramID = chatID
-		fullName   = strings.TrimSpace(m.Text)
+		chatID   = m.From.ID
+		fullName = strings.TrimSpace(m.Text)
 	)
-
-	if err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForFIO); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandleFIOInput",
-			CausedBy:    "checkRequiredState",
-		})
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForFIO)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandleFIOInput",
-			CausedBy:    "GetByTelegramID",
+			CausedBy:    "checkRequiredState",
 		})
 	}
 
@@ -59,13 +117,14 @@ func (h *handler) HandleFIOInput(ctx context.Context, m *tg.Message) error {
 				CausedBy:    "sendMessage",
 			})
 		}
+		return nil
 	}
 
 	updateDTO := dto.UpdateHouseholdCustomerDTO{
 		State:    &domain.StateWaitingForPhoneNumber,
 		FullName: &fullName,
 	}
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandleFIOInput",
@@ -87,11 +146,11 @@ func (h *handler) HandleFIOInput(ctx context.Context, m *tg.Message) error {
 func (h *handler) HandlePhoneNumberInput(ctx context.Context, m *tg.Message) error {
 	var (
 		chatID      = m.From.ID
-		telegramID  = chatID
 		phoneNumber = strings.TrimSpace(m.Text)
 	)
 
-	if err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForPhoneNumber); err != nil {
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForPhoneNumber)
+	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandlePhoneNumberInput",
@@ -107,22 +166,14 @@ func (h *handler) HandlePhoneNumberInput(ctx context.Context, m *tg.Message) err
 				CausedBy:    "sendMessage",
 			})
 		}
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandlePhoneNumberInput",
-			CausedBy:    "GetByTelegramID",
-		})
+		return nil
 	}
 
 	updateDTO := dto.UpdateHouseholdCustomerDTO{
 		State:       &domain.StateWaitingForDeliveryAddress,
 		PhoneNumber: &phoneNumber,
 	}
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandlePhoneNumberInput",
@@ -143,12 +194,12 @@ func (h *handler) HandlePhoneNumberInput(ctx context.Context, m *tg.Message) err
 
 func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message) error {
 	var (
-		chatID     = m.From.ID
-		telegramID = chatID
-		address    = strings.TrimSpace(m.Text)
+		chatID  = m.From.ID
+		address = strings.TrimSpace(m.Text)
 	)
 
-	if err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForDeliveryAddress); err != nil {
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForDeliveryAddress)
+	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandleDeliveryAddressInput",
@@ -156,75 +207,56 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 		})
 	}
 
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	firstProduct, ok := customer.Cart.First()
+	if !ok {
+		return h.sendMessage(chatID, "Твоя корзина пуста!")
+	}
+	category, ok := h.catalogProvider.GetCategoryByID(firstProduct.CategoryID)
+	if !ok {
+		return h.handleIfCategoryNotFound(ctx, chatID, customer, firstProduct)
+	}
+
+	order, err := h.makeOrderUsecase.NewOrder(ctx, address, customer, category.InStock)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandleDeliveryAddressInput",
-			CausedBy:    "GetByTelegramID",
+			CausedBy:    "NewOrder",
 		})
 	}
 
-	shortID, err := h.orderService.GetFreeShortID(ctx)
+	err = h.sendOrder(
+		ctx,
+		chatID,
+		order,
+		customer.HasPromocode(),
+		ptr.Ptr(customer.MustGetPromocode().GetHouseholdDiscount()),
+	)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "HandleDeliveryAddressInput",
-			CausedBy:    "GetFreeShortID",
-		})
-	}
-
-	order := domain.NewHouseholdOrder(customer, address, shortID)
-
-	if err := h.orderService.Save(ctx, order); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandleDeliveryAddressInput",
-			CausedBy:    "Save",
-		})
-	}
-
-	customer.Cart.Clear()
-	updateDTO := dto.UpdateHouseholdCustomerDTO{
-		Cart:  &customer.Cart,
-		State: &domain.StateDefault,
-	}
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandleDeliveryAddressInput",
-			CausedBy:    "Update",
-		})
-	}
-
-	if err := h.sendOrder(ctx, order, chatID); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "HandleDeliveryAddressInput",
-			CausedBy:    "sendOrderPreview",
+			CausedBy:    "sendOrder",
 		})
 	}
 	return nil
 }
 
-func (h *handler) sendOrder(ctx context.Context,
-	order domain.HouseholdOrder,
-	chatID int64) error {
-
-	orderText := templates.RenderOrder(order)
-	if err := h.sendMessage(chatID, orderText); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "sendOrder",
-			CausedBy:    "sendMessage",
-		})
+func (h *handler) sendOrder(ctx context.Context, chatID int64, order domain.HouseholdOrder, discounted bool, discount *uint32) error {
+	if discounted && discount != nil {
+		if err := h.sendMessage(chatID, templates.RenderOrderAfterPaymentWithDiscount(order, *discount)); err != nil {
+			return err
+		}
+	} else {
+		if err := h.sendMessage(chatID, templates.RenderOrderAfterPayment(order)); err != nil {
+			return err
+		}
 	}
 
 	updateDTO := dto.UpdateHouseholdCustomerDTO{
-		Meta:  &domain.Meta{},
 		State: &domain.StateDefault,
 	}
-	if err := h.customerRepo.Update(ctx, order.Customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, order.Customer.CustomerID, updateDTO); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
 			Handler:     "sendOrder",
@@ -232,22 +264,15 @@ func (h *handler) sendOrder(ctx context.Context,
 		})
 	}
 
-	requisitesMsg := tg.NewMessage(chatID, templates.Requisites(order.ShortID, domain.AdminRequisites))
-	sentRequisitesMsg, err := h.bot.Send(requisitesMsg)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "Send",
-			CausedBy:    "Update",
-		})
-	}
-
-	editButton := tg.NewEditMessageReplyMarkup(chatID,
-		sentRequisitesMsg.MessageID,
-		buttons.NewPaymentButton(callback.AcceptPayment, order.ShortID),
-	)
-
-	return h.cleanSend(editButton)
+	requisites := tg.NewMessage(chatID, templates.Requisites(order.ShortID, domain.AdminRequisites))
+	return h.sendWithMessageID(requisites, func(msgID int) error {
+		editButton := tg.NewEditMessageReplyMarkup(
+			chatID,
+			msgID,
+			buttons.NewPaymentButton(callback.AcceptPayment, order.ShortID),
+		)
+		return h.cleanSend(editButton)
+	})
 }
 
 func (h *handler) HandlePayment(ctx context.Context, c *tg.CallbackQuery, args []string) error {
@@ -257,7 +282,7 @@ func (h *handler) HandlePayment(ctx context.Context, c *tg.CallbackQuery, args [
 		shortOrderID = args[0]
 	)
 
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,

@@ -2,25 +2,28 @@ package dto
 
 import (
 	"domain"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type UpdateClothingCustomerDTO struct {
-	LastPosition   *domain.ClothingPosition
 	Username       *string
 	FullName       *string
+	PhoneNumber    *string
+	CatalogOffset  *uint
 	Meta           *domain.Meta
 	CalculatorMeta *domain.CalculatorMeta
-	PhoneNumber    *string
 	Cart           *domain.ClothingCart
+	LastPosition   *domain.ClothingPosition
 	State          *domain.State
-	CatalogOffset  *uint
+	PromocodeID    *primitive.ObjectID
 }
 
 type UpdateHouseholdCustomerDTO struct {
 	Username    *string
 	FullName    *string
 	PhoneNumber *string
-	Meta        *domain.Meta
 	Cart        *domain.HouseholdCart
 	State       *domain.State
+	PromocodeID *primitive.ObjectID
 }

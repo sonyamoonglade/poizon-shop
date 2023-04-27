@@ -5,19 +5,6 @@ import (
 	"onlineshop/database"
 )
 
-type Repositories struct {
-	HouseholdCustomer   *householdCustomerRepo
-	HouseholdOrder      *orderRepo[domain.HouseholdOrder]
-	HouseholdCategory   *householdCategoryRepo
-	HouseholdCatalogMsg *householdCatalogMsgRepo
-
-	ClothingCustomer *clothingCustomerRepo
-	ClothingOrder    *orderRepo[domain.ClothingOrder]
-	ClothingCatalog  *clothingCatalogRepo
-
-	Rate *rateRepo
-}
-
 const (
 	customersHH  = "h-customers"
 	categoriesHH = "h-categories"
@@ -29,7 +16,22 @@ const (
 	catalog   = "catalog"
 
 	rateKeyValue = "rate_keyValue"
+	promocodes   = "promocodes"
 )
+
+type Repositories struct {
+	HouseholdCustomer   *householdCustomerRepo
+	HouseholdOrder      *orderRepo[domain.HouseholdOrder]
+	HouseholdCategory   *householdCategoryRepo
+	HouseholdCatalogMsg *householdCatalogMsgRepo
+
+	ClothingCustomer *clothingCustomerRepo
+	ClothingOrder    *orderRepo[domain.ClothingOrder]
+	ClothingCatalog  *clothingCatalogRepo
+
+	Rate      *rateRepo
+	Promocode *promocodeRepo
+}
 
 func NewRepositories(db *database.Mongo, clothingOnChange ClothingOnChangeFunc, householdOnChange HouseholdOnChangeFunc) Repositories {
 	return Repositories{
@@ -41,5 +43,6 @@ func NewRepositories(db *database.Mongo, clothingOnChange ClothingOnChangeFunc, 
 		Rate:                NewRateRepository(db.Collection(rateKeyValue)),
 		HouseholdCategory:   NewHouseholdCategoryRepo(db.Collection(categoriesHH), householdOnChange),
 		HouseholdCatalogMsg: NewHouseholdCatalogMsgRepo(db.Collection(catalogMsgHH)),
+		Promocode:           NewPromocodeRepo(db.Collection(promocodes)),
 	}
 }

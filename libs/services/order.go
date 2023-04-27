@@ -50,6 +50,22 @@ func (o *orderService[T]) UpdateToPaid(ctx context.Context, customerID primitive
 	return o.repo.UpdateToPaid(ctx, customerID, shortID)
 }
 
+func (o *orderService[T]) GetByShortID(ctx context.Context, shortID string) (T, error) {
+	return o.repo.GetByShortID(ctx, shortID)
+}
+
 func (o *orderService[T]) GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID) ([]T, error) {
 	return o.repo.GetAllForCustomer(ctx, customerID)
+}
+
+func (o *orderService[T]) GetLast(ctx context.Context, customerID primitive.ObjectID) (T, error) {
+	return o.repo.GetLast(ctx, customerID)
+}
+
+func (o *orderService[T]) HasOnlyOneOrder(ctx context.Context, customerID primitive.ObjectID) (bool, error) {
+	count, err := o.repo.CountOrders(ctx, customerID)
+	if err != nil {
+		return false, fmt.Errorf("count orders: %w", err)
+	}
+	return count == 1, nil
 }

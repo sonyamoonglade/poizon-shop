@@ -7,6 +7,7 @@ import (
 	"domain"
 	"functools"
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"go.uber.org/multierr"
 )
 
 func (h *handler) sendWithKeyboard(chatID int64, text string, keyboard interface{}) error {
@@ -20,15 +21,15 @@ func (h *handler) cleanSend(c tg.Chattable) error {
 	return err
 }
 
-func (h *handler) checkRequiredState(ctx context.Context, want domain.State, telegramID int64) error {
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+func (h *handler) checkRequiredState(ctx context.Context, telegramID int64, want domain.State) (domain.ClothingCustomer, error) {
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
-		return fmt.Errorf("checkRequiredState: %w", err)
+		return domain.ClothingCustomer{}, fmt.Errorf("checkRequiredState: %w", err)
 	}
 	if customer.TgState != want {
-		return ErrInvalidState
+		return domain.ClothingCustomer{}, ErrInvalidState
 	}
-	return nil
+	return customer, nil
 }
 
 func (h *handler) sendMessage(chatID int64, text string) error {
@@ -46,4 +47,12 @@ func makeThumbnails(caption string, urls ...string) []interface{} {
 		}
 		return thumbnail
 	}, urls)
+}
+
+func (h *handler) deleteBulk(chatID int64, msgIDs ...int) error {
+	var err error
+	for _, id := range msgIDs {
+		err = multierr.Append(err, h.b.CleanRequest(tg.NewDeleteMessage(chatID, id)))
+	}
+	return err
 }

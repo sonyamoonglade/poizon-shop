@@ -10,17 +10,21 @@ type CalculatorMeta struct {
 }
 
 type ClothingCustomer struct {
-	CustomerID       primitive.ObjectID `json:"customerId" json:"customerID,omitempty" bson:"_id,omitempty"`
-	TelegramID       int64              `json:"telegramID" bson:"telegramId"`
-	Username         *string            `json:"username,omitempty" bson:"username,omitempty"`
-	FullName         *string            `json:"fullName,omitempty" bson:"fullName,omitempty"`
-	PhoneNumber      *string            `json:"phoneNumber,omitempty" bson:"phoneNumber,omitempty"`
-	TgState          State              `json:"state" bson:"state"`
-	Cart             ClothingCart       `json:"cart" bson:"cart"`
-	Meta             Meta               `json:"meta" bson:"meta"`
-	CalculatorMeta   CalculatorMeta     `json:"calculatorMeta" bson:"calculatorMeta"`
-	CatalogOffset    uint               `json:"catalogOffset" bson:"catalogOffset"`
-	LastEditPosition *ClothingPosition  `json:"lastEditPosition,omitempty" bson:"lastEditPosition"`
+	CustomerID       primitive.ObjectID  `json:"customerId" json:"customerID,omitempty" bson:"_id,omitempty"`
+	TelegramID       int64               `json:"telegramID" bson:"telegramId"`
+	Username         *string             `json:"username,omitempty" bson:"username,omitempty"`
+	FullName         *string             `json:"fullName,omitempty" bson:"fullName,omitempty"`
+	PhoneNumber      *string             `json:"phoneNumber,omitempty" bson:"phoneNumber,omitempty"`
+	CatalogOffset    uint                `json:"catalogOffset" bson:"catalogOffset"`
+	TgState          State               `json:"state" bson:"state"`
+	Cart             ClothingCart        `json:"cart" bson:"cart"`
+	Meta             Meta                `json:"meta" bson:"meta"`
+	CalculatorMeta   CalculatorMeta      `json:"calculatorMeta" bson:"calculatorMeta"`
+	LastEditPosition *ClothingPosition   `json:"lastEditPosition,omitempty" bson:"lastEditPosition"`
+	PromocodeID      *primitive.ObjectID `json:"promocodeId,omitempty" bson:"promocodeId,omitempty"`
+
+	// Used to join promocode by PromocodeID
+	Promocode *Promocode `json:"promocode,omitempty" bson:"-"`
 }
 
 func NewClothingCustomer(telegramID int64, username string) ClothingCustomer {
@@ -80,4 +84,33 @@ func (c *ClothingCustomer) IncrementCatalogOffset() {
 
 func (c *ClothingCustomer) NullifyCatalogOffset() {
 	c.CatalogOffset = 0
+}
+
+func (c *ClothingCustomer) SetPromocode(p Promocode) *ClothingCustomer {
+	// Joined field
+	c.Promocode = &p
+	return c
+}
+func (c *ClothingCustomer) UsePromocode(p Promocode) *ClothingCustomer {
+	c.Promocode = &p
+	c.PromocodeID = &p.PromocodeID
+	return c
+}
+
+func (c *ClothingCustomer) HasPromocode() bool {
+	return c.PromocodeID != nil
+}
+
+func (c *ClothingCustomer) GetPromocode() (*Promocode, bool) {
+	if c.HasPromocode() {
+		return c.Promocode, true
+	}
+	return nil, false
+}
+
+func (c *ClothingCustomer) MustGetPromocode() Promocode {
+	if c.HasPromocode() {
+		return *c.Promocode
+	}
+	return Promocode{}
 }

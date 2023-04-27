@@ -52,7 +52,6 @@ func (b *Bus[PayloadType]) SubscribeToTopicWithCallback(
 
 func (b *Bus[PayloadType]) SendToTopic(ctx context.Context, topicName string, payload any) error {
 	if payload == nil {
-		fmt.Println("sending empty")
 		return b.client.c.Publish(ctx, topicName, nil).Err()
 	}
 

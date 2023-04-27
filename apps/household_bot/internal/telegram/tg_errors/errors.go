@@ -1,7 +1,6 @@
 package tg_errors
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -61,19 +60,12 @@ func (e *Error) Error() string {
 	return e.originalErr.Error()
 }
 
-// ToJSON returns descriptive representation of an error
-func (e *Error) ToJSON() (string, error) {
-	b, err := json.Marshal(struct {
-		Handler, CausedBy, OriginalError string
-	}{
-		Handler:       e.context.handler,
-		CausedBy:      e.context.causedBy,
-		OriginalError: e.originalErr.Error(),
-	})
-	if err != nil {
-		return "", fmt.Errorf("json marshal: %w", err)
-	}
-	return string(b), nil
+func (e *Error) Is(target error) bool {
+	return e.originalErr == target
+}
+
+func (e *Error) String() string {
+	return fmt.Sprintf("handler [%s] causedBy [%s] msg [%s]", e.context.handler, e.context.causedBy, e.originalErr.Error())
 }
 
 func prependCausedBy(left, right string) string {

@@ -7,6 +7,7 @@ import (
 
 	"domain"
 	"dto"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -91,9 +92,15 @@ func (h *householdCustomerRepo) Update(ctx context.Context, customerID primitive
 		update["fullName"] = *dto.FullName
 	}
 
-	if dto.Meta != nil {
-		update["meta"] = dto.Meta
+	if dto.PromocodeID != nil {
+		// For deletion
+		if dto.PromocodeID.IsZero() {
+			update["promocodeId"] = nil
+		} else {
+			update["promocodeId"] = *dto.PromocodeID
+		}
 	}
+
 	_, err := h.customers.UpdateByID(ctx, customerID, bson.M{"$set": update})
 	return err
 }
@@ -104,6 +111,19 @@ func (h *householdCustomerRepo) Delete(ctx context.Context, customerID primitive
 	}
 	return nil
 
+}
+
+func (h *householdCustomerRepo) GetAllByPromocodeID(ctx context.Context, promocodeID primitive.ObjectID) ([]domain.HouseholdCustomer, error) {
+	cur, err := h.customers.Find(ctx, bson.M{"promocodeId": promocodeID})
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, domain.ErrNoCustomers
+		}
+		return nil, err
+	}
+
+	var customers []domain.HouseholdCustomer
+	return customers, cur.All(ctx, &customers)
 }
 
 func (h *householdCustomerRepo) GetState(ctx context.Context, telegramID int64) (domain.State, error) {

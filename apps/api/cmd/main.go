@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"domain"
+	"github.com/sonyamoonglade/s3-yandex-go/s3yandex"
+	"onlineshop/api/internal/uploader"
 	"redis"
 
 	"logger"
@@ -23,6 +25,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 	"go.uber.org/zap"
 )
 
@@ -100,7 +103,7 @@ func run() error {
 		}
 	}
 	repos := repositories.NewRepositories(mongo, clothingHook, householdHook)
-	householdCategoryService := services.NewHouseholdCategoryService(repos.HouseholdCategory, mongo)
+	srvs := services.NewServices(repos, mongo)
 
 	// HTTP api
 	app := fiber.New(fiber.Config{
@@ -127,8 +130,14 @@ func run() error {
 		)
 		return c.Next()
 	})
-
-	apiController := handler.NewHandler(repos, householdCategoryService)
+	app.Use(recover.New())
+	s3 := s3yandex.NewYandexS3Client(ctx, s3yandex.NewEnvCredentialsProvider(), &s3yandex.YandexS3Config{
+		Owner:  cfg.Uploader.Owner,
+		Bucket: cfg.Uploader.Bucket,
+		Debug:  false,
+	})
+	upl := uploader.NewUploader(s3, cfg.Uploader.S3BaseURL)
+	apiController := handler.NewHandler(repos, srvs, upl)
 	apiController.RegisterRoutes(app, cfg.HTTP.ApiKey)
 
 	if err := app.Listen(":" + cfg.HTTP.Port); err != nil {

@@ -10,18 +10,23 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+// todo: unify to generic customer interface!!
 type ClothingCustomer interface {
 	GetByTelegramID(ctx context.Context, telegramID int64) (domain.ClothingCustomer, error)
+	GetAllByPromocodeID(ctx context.Context, promocodeID primitive.ObjectID) ([]domain.ClothingCustomer, error)
 	All(ctx context.Context) ([]domain.ClothingCustomer, error)
 	Save(ctx context.Context, c domain.ClothingCustomer) error
 	UpdateState(ctx context.Context, telegramID int64, newState domain.State) error
-	NullifyCatalogOffsets(ctx context.Context) error
 	Update(ctx context.Context, customerID primitive.ObjectID, dto dto.UpdateClothingCustomerDTO) error
 	Delete(ctx context.Context, customerID primitive.ObjectID) error
+
+	NullifyCatalogOffsets(ctx context.Context) error
 }
 
+// todo: unify to generic customer interface!!
 type HouseholdCustomer interface {
 	GetByTelegramID(ctx context.Context, telegramID int64) (domain.HouseholdCustomer, error)
+	GetAllByPromocodeID(ctx context.Context, promocodeID primitive.ObjectID) ([]domain.HouseholdCustomer, error)
 	All(ctx context.Context) ([]domain.HouseholdCustomer, error)
 	Save(ctx context.Context, c domain.HouseholdCustomer) error
 	UpdateState(ctx context.Context, telegramID int64, newState domain.State) error
@@ -32,6 +37,7 @@ type HouseholdCustomer interface {
 type Order[T domain.ClothingOrder | domain.HouseholdOrder] interface {
 	GetByShortID(ctx context.Context, shortID string) (T, error)
 	GetAllForCustomer(ctx context.Context, customerID primitive.ObjectID) ([]T, error)
+	GetLast(ctx context.Context, customerID primitive.ObjectID) (T, error)
 	GetAll(ctx context.Context) ([]T, error)
 	Save(ctx context.Context, o T) error
 	Approve(ctx context.Context, orderID primitive.ObjectID) (T, error)
@@ -39,6 +45,7 @@ type Order[T domain.ClothingOrder | domain.HouseholdOrder] interface {
 	UpdateToPaid(ctx context.Context, customerID primitive.ObjectID, shortID string) error
 	ChangeStatus(ctx context.Context, dto dto.ChangeOrderStatusDTO) (T, error)
 	Delete(ctx context.Context, orderID primitive.ObjectID) error
+	CountOrders(ctx context.Context, customerID primitive.ObjectID) (int64, error)
 }
 
 type ClothingCatalog interface {
@@ -62,8 +69,17 @@ type HouseholdCategory interface {
 }
 
 type HouseholdCatalogMsg interface {
-	Save(ctx context.Context, m telegram.CatalogMsg) error
 	GetAll(ctx context.Context) ([]telegram.CatalogMsg, error)
+	Save(ctx context.Context, m telegram.CatalogMsg) error
 	Delete(ctx context.Context, id primitive.ObjectID) error
 	DeleteByMsgID(ctx context.Context, msgID int) error
+}
+
+type Promocode interface {
+	GetAll(ctx context.Context) ([]domain.Promocode, error)
+	GetByID(ctx context.Context, promocodeID primitive.ObjectID) (domain.Promocode, error)
+	GetByShortID(ctx context.Context, shortID string) (domain.Promocode, error)
+	Save(ctx context.Context, promo domain.Promocode) error
+	Delete(ctx context.Context, promocodeID primitive.ObjectID) error
+	Update(ctx context.Context, promocodeID primitive.ObjectID, dto dto.UpdatePromocodeDTO) error
 }

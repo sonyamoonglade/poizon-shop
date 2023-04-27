@@ -71,5 +71,17 @@
         "unique": true
       }
     ]
+  },
+  {
+    "createIndexes": "promocodes",
+    "indexes": [
+      {
+        "key": {
+          "shortId": 1
+        },
+        "name": "shortId_unique",
+        "unique": true
+      }
+    ]
   }
 ]

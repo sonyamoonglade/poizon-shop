@@ -19,18 +19,18 @@ func (h *handler) AddPosition(ctx context.Context, chatID int64) error {
 	if err := h.sendMessage(chatID, newPositionWarnTemplate); err != nil {
 		return err
 	}
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.customerService.GetByTelegramID(ctx, telegramID)
 	if err != nil {
 		return err
 	}
 	if len(customer.Cart) == 0 {
-		if err := h.customerRepo.UpdateState(ctx, telegramID, domain.StateWaitingForOrderType); err != nil {
+		if err := h.customerService.UpdateState(ctx, telegramID, domain.StateWaitingForOrderType); err != nil {
 			return err
 		}
 		// Start from scratch
 		return h.askForOrderType(ctx, chatID)
 	}
-	if err := h.customerRepo.UpdateState(ctx, telegramID, domain.StateWaitingForCategory); err != nil {
+	if err := h.customerService.UpdateState(ctx, telegramID, domain.StateWaitingForCategory); err != nil {
 		return err
 	}
 	// Otherwise start from category selection
@@ -38,20 +38,14 @@ func (h *handler) AddPosition(ctx context.Context, chatID int64) error {
 }
 
 func (h *handler) askForCategory(ctx context.Context, chatID int64) error {
-	if err := h.customerRepo.UpdateState(ctx, chatID, domain.StateWaitingForCategory); err != nil {
+	if err := h.customerService.UpdateState(ctx, chatID, domain.StateWaitingForCategory); err != nil {
 		return err
 	}
 	return h.sendWithKeyboard(chatID, askForCategoryTemplate, categoryButtons)
 }
 
 func (h *handler) HandleCategoryInput(ctx context.Context, chatID int64, cat domain.Category) error {
-	var telegramID = chatID
-
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForCategory, chatID); err != nil {
-		return err
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForCategory)
 	if err != nil {
 		return err
 	}
@@ -61,7 +55,7 @@ func (h *handler) HandleCategoryInput(ctx context.Context, chatID int64, cat dom
 		LastPosition: customer.LastEditPosition,
 	}
 
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
 
@@ -79,17 +73,12 @@ func (h *handler) askForOrderType(ctx context.Context, chatID int64) error {
 
 func (h *handler) HandleOrderTypeInput(ctx context.Context, chatID int64, typ domain.OrderType) error {
 	var (
-		telegramID = chatID
-		isExpress  = typ == domain.OrderTypeExpress
+		isExpress = typ == domain.OrderTypeExpress
 	)
 
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForOrderType, chatID); err != nil {
-		return err
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForOrderType)
 	if err != nil {
-		return err
+		return fmt.Errorf("check required state: %w", err)
 	}
 
 	customer.UpdateMetaOrderType(typ)
@@ -98,7 +87,7 @@ func (h *handler) HandleOrderTypeInput(ctx context.Context, chatID int64, typ do
 		Meta:  &customer.Meta,
 		State: &domain.StateWaitingForCategory,
 	}
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return err
 	}
 
@@ -123,22 +112,18 @@ func (h *handler) askForSize(ctx context.Context, chatID int64) error {
 		return err
 	}
 
-	return h.customerRepo.UpdateState(ctx, chatID, domain.StateWaitingForSize)
+	return h.customerService.UpdateState(ctx, chatID, domain.StateWaitingForSize)
 }
 
 func (h *handler) HandleSizeInput(ctx context.Context, m *tg.Message) error {
 	var (
-		chatID     = m.Chat.ID
-		telegramID = chatID
-		sizeText   = strings.TrimSpace(m.Text)
+		chatID   = m.Chat.ID
+		sizeText = strings.TrimSpace(m.Text)
 	)
 
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForSize, chatID); err != nil {
-		return err
-	}
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForSize)
 	if err != nil {
-		return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
+		return fmt.Errorf("check required state: %w", err)
 	}
 
 	customer.UpdateLastEditPositionSize(sizeText)
@@ -148,7 +133,7 @@ func (h *handler) HandleSizeInput(ctx context.Context, m *tg.Message) error {
 		State:        &domain.StateWaitingForButton,
 	}
 
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
 	if sizeText == "#" {
@@ -162,17 +147,12 @@ func (h *handler) HandleSizeInput(ctx context.Context, m *tg.Message) error {
 
 func (h *handler) HandleButtonSelect(ctx context.Context, c *tg.CallbackQuery, button domain.Button) error {
 	var (
-		chatID     = c.From.ID
-		telegramID = chatID
+		chatID = c.From.ID
 	)
 
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForButton, chatID); err != nil {
-		return err
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForButton)
 	if err != nil {
-		return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
+		return fmt.Errorf("check required state: %w", err)
 	}
 
 	customer.UpdateLastEditPositionButtonColor(button)
@@ -181,7 +161,7 @@ func (h *handler) HandleButtonSelect(ctx context.Context, c *tg.CallbackQuery, b
 		State:        &domain.StateWaitingForPrice,
 	}
 
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
 	if err := h.sendMessage(chatID, fmt.Sprintf("Цвет выбранной кнопки: %s", string(button))); err != nil {
@@ -193,18 +173,13 @@ func (h *handler) HandleButtonSelect(ctx context.Context, c *tg.CallbackQuery, b
 
 func (h *handler) HandlePriceInput(ctx context.Context, m *tg.Message) error {
 	var (
-		chatID     = m.Chat.ID
-		telegramID = chatID
-		input      = strings.TrimSpace(m.Text)
+		chatID = m.Chat.ID
+		input  = strings.TrimSpace(m.Text)
 	)
 	// validate state
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForPrice, chatID); err != nil {
-		return err
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForPrice)
 	if err != nil {
-		return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
+		return fmt.Errorf("check required state: %w", err)
 	}
 
 	priceYuan, err := strconv.ParseUint(input, 10, 64)
@@ -237,12 +212,19 @@ func (h *handler) HandlePriceInput(ctx context.Context, m *tg.Message) error {
 		State:        &domain.StateWaitingForLink,
 	}
 
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
 
-	if err := h.sendMessage(chatID, fmt.Sprintf("Стоимость товара: %d ₽", priceRub)); err != nil {
-		return err
+	if customer.HasPromocode() {
+		discount := customer.MustGetPromocode().GetClothingDiscount()
+		if err := h.sendMessage(chatID, fmt.Sprintf("Стоимость товара с учетом скидки: %d ₽", priceRub-uint64(discount))); err != nil {
+			return err
+		}
+	} else {
+		if err := h.sendMessage(chatID, fmt.Sprintf("Стоимость товара: %d ₽", priceRub)); err != nil {
+			return err
+		}
 	}
 
 	if err := h.sendMessage(chatID, deliveryOnlyToMoscowTemplate); err != nil {
@@ -254,19 +236,14 @@ func (h *handler) HandlePriceInput(ctx context.Context, m *tg.Message) error {
 
 func (h *handler) HandleLinkInput(ctx context.Context, m *tg.Message) error {
 	var (
-		chatID     = m.From.ID
-		telegramID = chatID
-		link       = strings.TrimSpace(m.Text)
+		chatID = m.From.ID
+		link   = strings.TrimSpace(m.Text)
 	)
 
 	// validate state
-	if err := h.checkRequiredState(ctx, domain.StateWaitingForLink, chatID); err != nil {
-		return err
-	}
-
-	customer, err := h.customerRepo.GetByTelegramID(ctx, telegramID)
+	customer, err := h.checkRequiredState(ctx, chatID, domain.StateWaitingForLink)
 	if err != nil {
-		return fmt.Errorf("customerRepo.GetByTelegramID: %w", err)
+		return fmt.Errorf("check required state: %w", err)
 	}
 
 	if ok := url.IsValidDW4URL(link); !ok {
@@ -284,7 +261,7 @@ func (h *handler) HandleLinkInput(ctx context.Context, m *tg.Message) error {
 		State:        &domain.StateDefault,
 	}
 
-	if err := h.customerRepo.Update(ctx, customer.CustomerID, updateDTO); err != nil {
+	if err := h.customerService.Update(ctx, customer.CustomerID, updateDTO); err != nil {
 		return fmt.Errorf("customerRepo.Update: %w", err)
 	}
 

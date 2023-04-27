@@ -22,7 +22,7 @@ func (h *Handler) GetCategoryByID(c *fiber.Ctx) error {
 	if err != nil {
 		return fmt.Errorf("get category id from params: %w", err)
 	}
-	category, err := h.categoryService.GetByID(c.Context(), categoryID)
+	category, err := h.services.HouseholdCategory.GetByID(c.Context(), categoryID)
 	if err != nil {
 		return fmt.Errorf("get by id: %w", err)
 	}
@@ -40,7 +40,7 @@ func (h *Handler) NewCategory(c *fiber.Ctx) error {
 	if title == "" {
 		return ErrNoTitle
 	}
-	if err := h.categoryService.New(c.Context(), title, inStock); err != nil {
+	if err := h.services.HouseholdCategory.New(c.Context(), title, inStock); err != nil {
 		return fmt.Errorf("new category: %w", err)
 	}
 	return c.SendStatus(http.StatusCreated)
@@ -48,7 +48,7 @@ func (h *Handler) NewCategory(c *fiber.Ctx) error {
 
 func (h *Handler) GetAllCategories(c *fiber.Ctx) error {
 	inStock := c.QueryBool("inStock", false)
-	categories, err := h.categoryService.GetAllByInStock(c.Context(), inStock)
+	categories, err := h.services.HouseholdCategory.GetAllByInStock(c.Context(), inStock)
 	if err != nil {
 		return fmt.Errorf("get all: %w", err)
 	}
@@ -64,7 +64,7 @@ func (h *Handler) UpdateCategory(c *fiber.Ctx) error {
 	if err != nil {
 		return fmt.Errorf("get category from params: %w", err)
 	}
-	if err := h.categoryService.Update(c.Context(), id, inp); err != nil {
+	if err := h.services.HouseholdCategory.Update(c.Context(), id, inp); err != nil {
 		return fmt.Errorf("update category: %w", err)
 	}
 	return c.SendStatus(http.StatusOK)
@@ -75,7 +75,7 @@ func (h *Handler) DeleteCategory(c *fiber.Ctx) error {
 	if err != nil {
 		return fmt.Errorf("get category from params: %w", err)
 	}
-	if err := h.categoryService.Delete(c.Context(), id); err != nil {
+	if err := h.services.HouseholdCategory.Delete(c.Context(), id); err != nil {
 		return fmt.Errorf("delete category: %w", err)
 	}
 	return c.SendStatus(http.StatusOK)

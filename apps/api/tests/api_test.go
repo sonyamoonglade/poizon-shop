@@ -26,7 +26,7 @@ func (s *AppTestSuite) TestApiAddItem() {
 			ShopLink:        f.URL(),
 			PriceRUB:        234,
 		}
-		resp, err := s.app.Test(testutil.NewJsonRequest(http.MethodPost, "/api/clothing/catalog/addItem", inp), -1)
+		resp, err := s.app.Test(testutil.NewJsonRequestWithKey("abcd")(http.MethodPost, "/api/clothing/catalog/addItem", inp), -1)
 		require.NoError(err)
 		require.Equal(http.StatusOK, resp.StatusCode)
 
@@ -36,7 +36,6 @@ func (s *AppTestSuite) TestApiAddItem() {
 		elem := respJson[0]
 		require.Equal(uint(0), elem.Rank)
 
-		// cleanup
 		s.repositories.ClothingCatalog.RemoveItem(context.Background(), elem.ItemID)
 	})
 
@@ -73,18 +72,18 @@ func (s *AppTestSuite) TestApiAddItem() {
 		i1, i2, i3 := inputs[0], inputs[1], inputs[2]
 
 		// Add first
-		resp, err := s.app.Test(testutil.NewJsonRequest(http.MethodPost, "/api/clothing/catalog/addItem", i1), -1)
+		resp, err := s.app.Test(testutil.NewJsonRequestWithKey("abcd")(http.MethodPost, "/api/clothing/catalog/addItem", i1), -1)
 		require.NoError(err)
 		require.Equal(http.StatusOK, resp.StatusCode)
 
 		// Add second
-		resp, err = s.app.Test(testutil.NewJsonRequest(http.MethodPost, "/api/clothing/catalog/addItem", i2), -1)
+		resp, err = s.app.Test(testutil.NewJsonRequestWithKey("abcd")(http.MethodPost, "/api/clothing/catalog/addItem", i2), -1)
 		require.NoError(err)
 		require.Equal(http.StatusOK, resp.StatusCode)
 
 		var respJson []domain.ClothingProduct
 		// Add third
-		resp, err = s.app.Test(testutil.NewJsonRequest(http.MethodPost, "/api/clothing/catalog/addItem", i3), -1)
+		resp, err = s.app.Test(testutil.NewJsonRequestWithKey("abcd")(http.MethodPost, "/api/clothing/catalog/addItem", i3), -1)
 		require.NoError(err)
 		require.Equal(http.StatusOK, resp.StatusCode)
 		require.NoError(json.NewDecoder(resp.Body).Decode(&respJson))
@@ -134,7 +133,7 @@ func (s *AppTestSuite) TestDeleteItem() {
 		require.NoError(err)
 		// remove item with top rank (last)
 		deleteItem := catalog[len(catalog)-1]
-		resp, err := s.app.Test(testutil.NewJsonRequest(http.MethodPost, "/api/clothing/catalog/deleteItem", input.RemoveItemFromCatalogInput{
+		resp, err := s.app.Test(testutil.NewJsonRequestWithKey("abcd")(http.MethodPost, "/api/clothing/catalog/deleteItem", input.RemoveItemFromCatalogInput{
 			ItemID: deleteItem.ItemID,
 		}), -1)
 		require.NoError(err)
@@ -177,7 +176,7 @@ func (s *AppTestSuite) TestDeleteItem() {
 		require.NoError(err)
 		// remove item with top rank (last)
 		deleteItem := catalog[50]
-		resp, err := s.app.Test(testutil.NewJsonRequest(http.MethodPost, "/api/clothing/catalog/deleteItem", input.RemoveItemFromCatalogInput{
+		resp, err := s.app.Test(testutil.NewJsonRequestWithKey("abcd")(http.MethodPost, "/api/clothing/catalog/deleteItem", input.RemoveItemFromCatalogInput{
 			ItemID: deleteItem.ItemID,
 		}), -1)
 		require.NoError(err)
