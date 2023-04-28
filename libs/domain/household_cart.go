@@ -1,9 +1,40 @@
 package domain
 
+import "go.mongodb.org/mongo-driver/bson/primitive"
+
 type HouseholdCart []HouseholdProduct
 
 func NewHouseholdCart() HouseholdCart {
 	return HouseholdCart(nil)
+}
+
+type GroupedHouesholdProducts struct {
+	// Product
+	P HouseholdProduct
+	// Quantity
+	Qty uint
+}
+
+func (c *HouseholdCart) Group() []GroupedHouesholdProducts {
+	groups := make(map[primitive.ObjectID]GroupedHouesholdProducts, c.Size())
+	for _, product := range c.Slice() {
+		if _, ok := groups[product.ProductID]; !ok {
+			groups[product.ProductID] = GroupedHouesholdProducts{
+				P:   product,
+				Qty: 1,
+			}
+		} else {
+			groups[product.ProductID] = GroupedHouesholdProducts{
+				P:   groups[product.ProductID].P,
+				Qty: groups[product.ProductID].Qty + 1,
+			}
+		}
+	}
+	out := make([]GroupedHouesholdProducts, 0, len(groups))
+	for _, v := range groups {
+		out = append(out, v)
+	}
+	return out
 }
 
 func (c *HouseholdCart) First() (HouseholdProduct, bool) {

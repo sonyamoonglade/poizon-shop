@@ -103,8 +103,9 @@ func RenderOrderAfterPaymentWithDiscount(order domain.HouseholdOrder, discount u
 	for i, pos := range order.Cart {
 
 		if order.InStock {
+			// TODO: n -> qty
 			start += _cartPositionWithDiscountInStock(cartPositionWithDiscountInStockArgs{
-				n:               i + 1,
+				qty:             1, // !!!!
 				price:           pos.Price,
 				discountedPrice: pos.Price - discount,
 				availableIn:     *pos.AvailableIn,
