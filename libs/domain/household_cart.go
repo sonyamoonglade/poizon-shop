@@ -1,6 +1,8 @@
 package domain
 
-import "go.mongodb.org/mongo-driver/bson/primitive"
+import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 type HouseholdCart []HouseholdProduct
 
@@ -12,7 +14,7 @@ type GroupedHouesholdProducts struct {
 	// Product
 	P HouseholdProduct
 	// Quantity
-	Qty uint
+	Qty int
 }
 
 func (c *HouseholdCart) Group() []GroupedHouesholdProducts {
@@ -69,6 +71,27 @@ func (c *HouseholdCart) RemoveAt(index int) {
 			break
 		}
 	}
+}
+
+var RemoveByProductID = func(productIDStr string) RemovePredicate {
+	id, _ := primitive.ObjectIDFromHex(productIDStr)
+	return func(p HouseholdProduct, i int) bool {
+		return id == p.ProductID
+	}
+}
+
+type RemovePredicate func(p HouseholdProduct, i int) bool
+
+func (c *HouseholdCart) Remove(predicate RemovePredicate) HouseholdProduct {
+	for i := range *c {
+		p := (*c)[i]
+		if predicate(p, i) {
+			c.swap(i, len(*c)-1)
+			*c = (*c)[:len(*c)-1]
+			return p
+		}
+	}
+	return HouseholdProduct{}
 }
 
 func (c *HouseholdCart) swap(i, j int) {
