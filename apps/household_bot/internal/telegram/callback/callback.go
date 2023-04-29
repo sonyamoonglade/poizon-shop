@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"utils/transliterators"
 )
 
 type Callback int
@@ -46,7 +48,7 @@ func Inject(cb Callback, values ...string) string {
 	if len(values) == 0 {
 		return rawCallbackPrefix + cb.string()
 	}
-	out := dataPrefix + cb.string() + ";" + strings.Join(values, ";")
+	out := dataPrefix + cb.string() + ";" + strings.Join(transliterators.Encode(values), ";")
 	if len(out) > 64 {
 		return rawCallbackPrefix + NoOpCallback.string()
 	}
@@ -61,7 +63,7 @@ func ParseButtonData(data string) (Callback, []string, error) {
 		}
 		return cb, nil, nil
 	}
-	values := strings.Split(data[1:], ";")
+	values := transliterators.Decode(strings.Split(data[1:], ";"))
 	if len(values) == 0 {
 		return -1, nil, fmt.Errorf("invalid callback data")
 	}

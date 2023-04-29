@@ -1,9 +1,8 @@
 package buttons
 
 import (
-	"strconv"
-
 	"household_bot/internal/telegram/callback"
+	"utils/boolconv"
 
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -24,7 +23,7 @@ func NewCategoryButton(cb callback.Callback, title string, inStock bool) Categor
 }
 
 func (c Category) ToRow() []tg.InlineKeyboardButton {
-	data := callback.Inject(c.c, c.title, strconv.FormatBool(c.onlyAvailableInStock))
+	data := callback.Inject(c.c, c.title, boolconv.Optimized(c.onlyAvailableInStock))
 	return tg.NewInlineKeyboardRow(tg.NewInlineKeyboardButtonData(c.title, data))
 }
 
@@ -46,7 +45,7 @@ func NewSubcategory(cb callback.Callback, cTitle, title string, inStock bool) Su
 }
 
 func (s Subcategory) ToRow() []tg.InlineKeyboardButton {
-	data := callback.Inject(s.c, s.cTitle, s.title, strconv.FormatBool(s.onlyAvailableInStock))
+	data := callback.Inject(s.c, s.cTitle, s.title, boolconv.Optimized(s.onlyAvailableInStock))
 	return tg.NewInlineKeyboardRow(tg.NewInlineKeyboardButtonData(s.title, data))
 }
 
@@ -67,7 +66,7 @@ func NewProductCard(cb callback.Callback, cTitle, sTitle, name string, inStock b
 }
 
 func (p ProductCard) ToRow() []tg.InlineKeyboardButton {
-	data := callback.Inject(p.c, p.cTitle, p.sTitle, strconv.FormatBool(p.inStock), p.name)
+	data := callback.Inject(p.c, p.cTitle, p.sTitle, boolconv.Optimized(p.inStock), p.name)
 	return tg.NewInlineKeyboardRow(tg.NewInlineKeyboardButtonData(p.name, data))
 }
 
@@ -93,11 +92,11 @@ const (
 func (b BackButton) ToRow() []tg.InlineKeyboardButton {
 	var data string
 	if b.cTitle != nil && b.sTitle != nil && b.inStock != nil {
-		data = callback.Inject(b.c, *b.cTitle, *b.sTitle, strconv.FormatBool(*b.inStock))
+		data = callback.Inject(b.c, *b.cTitle, *b.sTitle, boolconv.Optimized(*b.inStock))
 	} else if b.cTitle != nil && b.inStock != nil {
-		data = callback.Inject(b.c, *b.cTitle, strconv.FormatBool(*b.inStock))
+		data = callback.Inject(b.c, *b.cTitle, boolconv.Optimized(*b.inStock))
 	} else if b.inStock != nil {
-		data = callback.Inject(b.c, strconv.FormatBool(*b.inStock))
+		data = callback.Inject(b.c, boolconv.Optimized(*b.inStock))
 	} else {
 		data = callback.Inject(b.c)
 	}

@@ -74,10 +74,11 @@ func Requisites(shortOrderID string, r domain.Requisites) string {
 
 func RenderOrderAfterPayment(order domain.HouseholdOrder) string {
 	start := cartWarn + _orderStart(order)
-	for i, pos := range order.Cart {
+	for _, groupedProduct := range order.Cart.Group() {
+		pos := groupedProduct.P
 		if order.InStock {
 			start += _cartPositionInStock(cartPositionInStockArgs{
-				n:           i + 1,
+				qty:         groupedProduct.Qty,
 				price:       pos.Price,
 				availableIn: *pos.AvailableIn,
 				priceGlob:   pos.PriceGlob,
@@ -86,7 +87,7 @@ func RenderOrderAfterPayment(order domain.HouseholdOrder) string {
 			})
 		} else {
 			start += _cartPositionOrdered(cartPositionOrderedArgs{
-				n:         i + 1,
+				qty:       groupedProduct.Qty,
 				price:     pos.Price,
 				priceGlob: pos.PriceGlob,
 				name:      pos.Name,
@@ -100,12 +101,11 @@ func RenderOrderAfterPayment(order domain.HouseholdOrder) string {
 
 func RenderOrderAfterPaymentWithDiscount(order domain.HouseholdOrder, discount uint32) string {
 	start := cartWarn + _orderStart(order)
-	for i, pos := range order.Cart {
-
+	for _, groupedProduct := range order.Cart.Group() {
+		pos := groupedProduct.P
 		if order.InStock {
-			// TODO: n -> qty
 			start += _cartPositionWithDiscountInStock(cartPositionWithDiscountInStockArgs{
-				qty:             1, // !!!!
+				qty:             groupedProduct.Qty,
 				price:           pos.Price,
 				discountedPrice: pos.Price - discount,
 				availableIn:     *pos.AvailableIn,
@@ -115,7 +115,7 @@ func RenderOrderAfterPaymentWithDiscount(order domain.HouseholdOrder, discount u
 			})
 		} else {
 			start += _cartPositionWithDiscountOrdered(cartPositionWithDiscountOrderedArgs{
-				n:               i + 1,
+				qty:             groupedProduct.Qty,
 				price:           pos.Price,
 				discountedPrice: pos.Price - discount,
 				priceGlob:       pos.PriceGlob,
@@ -132,10 +132,11 @@ func RenderMyOrders(name string, orders []domain.HouseholdOrder) string {
 	start := fmt.Sprintf(myOrdersStart, name)
 	for _, o := range orders {
 		start += _myOrderBody(o)
-		for i, pos := range o.Cart {
+		for _, groupedProduct := range o.Cart.Group() {
+			pos := groupedProduct.P
 			if o.InStock {
 				start += _cartPositionInStock(cartPositionInStockArgs{
-					n:           i + 1,
+					qty:         groupedProduct.Qty,
 					price:       pos.Price,
 					priceGlob:   pos.PriceGlob,
 					availableIn: *pos.AvailableIn,
@@ -144,7 +145,7 @@ func RenderMyOrders(name string, orders []domain.HouseholdOrder) string {
 				})
 			} else {
 				start += _cartPositionOrdered(cartPositionOrderedArgs{
-					n:         i + 1,
+					qty:       groupedProduct.Qty,
 					price:     pos.Price,
 					priceGlob: pos.PriceGlob,
 					name:      pos.Name,

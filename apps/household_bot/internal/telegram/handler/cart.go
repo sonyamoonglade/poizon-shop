@@ -181,7 +181,7 @@ func (h *handler) EditCart(ctx context.Context, chatID int64, cartMsgID int) err
 		return fmt.Errorf("customerService.GetByTelegramID: %w", err)
 	}
 
-	if len(customer.Cart) == 0 {
+	if customer.Cart.IsEmpty() {
 		return h.emptyCart(chatID)
 	}
 
@@ -195,8 +195,8 @@ func (h *handler) EditCart(ctx context.Context, chatID int64, cartMsgID int) err
 
 	return h.sendWithKeyboard(chatID,
 		templates.EditCartPosition(),
-		buttons.NewEditCartButtons(
-			len(customer.Cart),
+		buttons.NewEditCartButtonsGroup(
+			customer.Cart.Group(),
 			cartMsgID,
 		),
 	)
@@ -205,19 +205,10 @@ func (h *handler) EditCart(ctx context.Context, chatID int64, cartMsgID int) err
 func (h *handler) DeletePositionFromCart(ctx context.Context, chatID int64, buttonsMsgID int, args []string) error {
 	var (
 		cartMsgIDStr,
-		buttonClickedStr = args[0], args[1]
+		productIDStr = args[0], args[1]
 	)
 
 	cartMsgID, err := strconv.Atoi(cartMsgIDStr)
-	if err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "RemoveCartPosition",
-			CausedBy:    "Atoi",
-		})
-	}
-
-	posIndex, err := strconv.Atoi(buttonClickedStr)
 	if err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
@@ -234,8 +225,7 @@ func (h *handler) DeletePositionFromCart(ctx context.Context, chatID int64, butt
 			CausedBy:    "checkRequiredState",
 		})
 	}
-
-	customer.Cart.RemoveAt(posIndex)
+	deletedProduct := customer.Cart.Remove(domain.RemoveByProductID(productIDStr))
 	updateDTO := dto.UpdateHouseholdCustomerDTO{
 		Cart: &customer.Cart,
 	}
@@ -275,13 +265,17 @@ func (h *handler) DeletePositionFromCart(ctx context.Context, chatID int64, butt
 	firstProduct, _ := customer.Cart.First()
 	category, _ := h.catalogProvider.GetCategoryByID(firstProduct.CategoryID)
 
-	cartMsg := tg.NewEditMessageText(chatID, cartMsgID, templates.RenderCart(customer.Cart, category.InStock))
+	cartMsg := tg.NewEditMessageText(
+		chatID,
+		cartMsgID,
+		templates.RenderCart(customer.Cart, category.InStock),
+	)
 	cartMsg.ReplyMarkup = &buttons.CartPreview
 
 	updateButtons := tg.NewEditMessageReplyMarkup(chatID,
 		buttonsMsgID,
-		buttons.NewEditCartButtons(
-			len(customer.Cart),
+		buttons.NewEditCartButtonsGroup(
+			customer.Cart.Group(),
 			cartMsgID,
 		),
 	)
@@ -293,8 +287,8 @@ func (h *handler) DeletePositionFromCart(ctx context.Context, chatID int64, butt
 			CausedBy:    "sendBulk",
 		})
 	}
-
-	return h.sendMessage(chatID, fmt.Sprintf("Позиция %d успешно удалена. Корзина сверху обновлена ✅", posIndex+1))
+	_ = deletedProduct
+	return nil
 }
 
 func (h *handler) emptyCart(chatID int64) error {

@@ -2,9 +2,9 @@ package buttons
 
 import (
 	"fmt"
-	"strconv"
 
 	"household_bot/internal/telegram/callback"
+	"utils/boolconv"
 
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -22,13 +22,8 @@ func NewCategoryButtons(titles []string, cb callback.Callback, inStock bool, bac
 	return tg.NewInlineKeyboardMarkup(rows...)
 }
 func NewSubcategoryButtons(cTitle string, titles []string, cb callback.Callback, inStock bool, back BackButton) tg.InlineKeyboardMarkup {
-	// Split by 2 rows
 	var rows [][]tg.InlineKeyboardButton
-	//var (
-	//	r1, r2 []tg.InlineKeyboardButton
-	//)
-	//// 9 5 4
-	//median := math.Ceil(float64(len(titles)) / float64(2))
+
 	for _, title := range titles {
 		rows = append(rows, NewSubcategory(cb, cTitle, title, inStock).ToRow())
 	}
@@ -65,13 +60,13 @@ type ProductCardButtonsArgs struct {
 
 func NewProductCardButtons(args ProductCardButtonsArgs) tg.InlineKeyboardMarkup {
 	rows := make([][]tg.InlineKeyboardButton, 0, 2)
-	data := callback.Inject(args.Cb, args.CTitle, args.STitle, strconv.FormatBool(args.InStock), args.PName)
+	data := callback.Inject(args.Cb, args.CTitle, args.STitle, boolconv.Optimized(args.InStock), args.PName)
 	addToCardBtn := tg.NewInlineKeyboardButtonData("Добавить 1 шт.", data)
 	rows = append(rows, tg.NewInlineKeyboardRow(addToCardBtn))
 	if args.Quantity > 0 {
 		rows = append(rows,
 			tg.NewInlineKeyboardRow(
-				tg.NewInlineKeyboardButtonData("Посмотреть корзину", callback.Inject(callback.MyCart)),
+				tg.NewInlineKeyboardButtonData("Посмотреть корзину 👇🏻", callback.Inject(callback.MyCart)),
 			),
 			tg.NewInlineKeyboardRow(
 				tg.NewInlineKeyboardButtonData(fmt.Sprintf("В корзине %d шт.", args.Quantity), callback.Inject(callback.MyCart)),

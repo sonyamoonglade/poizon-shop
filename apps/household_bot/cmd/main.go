@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"domain"
+	"go.uber.org/zap"
 	"household_bot/config"
 	"household_bot/internal/catalog"
 	"household_bot/internal/telegram/bot"
@@ -17,6 +19,7 @@ import (
 	"household_bot/internal/telegram/router"
 	"logger"
 	"onlineshop/database"
+	"redis"
 	"repositories"
 	"services"
 	"usecase"
@@ -91,34 +94,34 @@ func run() error {
 		cfg.Bot.HandlerTimeout,
 	)
 
-	// client := redis.NewClient(cfg.Redis.Addr)
-	// bus := redis.NewBus[[]domain.HouseholdCategory](client)
+	client := redis.NewClient(cfg.Redis.Addr)
+	bus := redis.NewBus[[]domain.HouseholdCategory](client)
 
-	// redCtx, cancel := context.WithCancel(context.Background())
-	// defer cancel()
+	redCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// onCatalogUpdate := func(items []domain.HouseholdCategory) error {
-	// 	catalogProvider.Load(items)
-	// 	return nil
-	// }
-	// redisErrorHandler := func(topic string, err error) {
-	// 	logger.Get().Error("redis error", zap.Error(err))
-	// }
-	// go bus.SubscribeToTopicWithCallback(
-	// 	redCtx,
-	// 	redis.HouseholdCatalogTopic,
-	// 	onCatalogUpdate,
-	// 	redisErrorHandler,
-	// )
+	onCatalogUpdate := func(items []domain.HouseholdCategory) error {
+		catalogProvider.Load(items)
+		return nil
+	}
+	redisErrorHandler := func(topic string, err error) {
+		logger.Get().Error("redis error", zap.Error(err))
+	}
+	go bus.SubscribeToTopicWithCallback(
+		redCtx,
+		redis.HouseholdCatalogTopic,
+		onCatalogUpdate,
+		redisErrorHandler,
+	)
 
-	// go bus.SubscribeToTopicWithCallback(
-	// 	redCtx,
-	// 	redis.HouseholdWipeCatalogTopic,
-	// 	func(_ []domain.HouseholdCategory) error {
-	// 		return tgHandler.WipeCatalogs(redCtx)
-	// 	},
-	// 	redisErrorHandler,
-	// )
+	go bus.SubscribeToTopicWithCallback(
+		redCtx,
+		redis.HouseholdWipeCatalogTopic,
+		func(_ []domain.HouseholdCategory) error {
+			return tgHandler.WipeCatalogs(redCtx)
+		},
+		redisErrorHandler,
+	)
 
 	go tgRouter.Bootstrap()
 

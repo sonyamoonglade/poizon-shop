@@ -19,11 +19,11 @@ const (
 		"дальнейшая отправка в другие города считается и оплачивается отдельно в ТК 🌉\n\n" +
 		"Готов заказать? Жми кнопку!"
 
-	positionPreviewInStock = "%d. Название: %s\nЦена: %d ₽\nЦена по рынку: %d ₽\nНаличие: %s\nАртикул: %s\n\n"
-	positionPreviewOrdered = "%d. Название: %s\nЦена: %d ₽\nЦена по рынку: %d ₽\nАртикул: %s\n\n"
+	positionPreviewInStock = "Количество: %d\nНазвание: %s\nЦена: %d ₽\nЦена по рынку: %d ₽\nНаличие: %s\nАртикул: %s\n\n"
+	positionPreviewOrdered = "Количество: %d\nНазвание: %s\nЦена: %d ₽\nЦена по рынку: %d ₽\nАртикул: %s\n\n"
 
-	positionPreviewWithDiscountInStock = "Kolvo: %d. Название: %s\nЦена: %d ₽\nЦена (с учетом скидки): %d ₽\nЦена по рынку: %d ₽\nНаличие: %s\nАртикул: %s\n\n"
-	positionPreviewWithDiscountOrdered = "%d. Название: %s\nЦена: %d ₽\nЦена (с учетом скидки): %d ₽\nЦена по рынку: %d ₽\nАртикул: %s\n\n"
+	positionPreviewWithDiscountInStock = "Количество: %d\nНазвание: %s\nЦена: %d ₽\nЦена (с учетом скидки): %d ₽\nЦена по рынку: %d ₽\nНаличие: %s\nАртикул: %s\n\n"
+	positionPreviewWithDiscountOrdered = "Количество: %d\nНазвание: %s\nЦена: %d ₽\nЦена (с учетом скидки): %d ₽\nЦена по рынку: %d ₽\nАртикул: %s\n\n"
 
 	editPosition = "Выбери номер позиции, чтобы удалить её 🙅‍♂️\n\nПо клику на " +
 		"кнопку позиция изчезнет из твоей корзины!"
@@ -56,10 +56,11 @@ func ProductNotFound(name, isbn string) string {
 func RenderCart(cart domain.HouseholdCart, inStock bool) string {
 	start := _cartPreviewStart(len(cart))
 	var total uint32
-	for i, pos := range cart {
+	for _, groupedProduct := range cart.Group() {
+		pos := groupedProduct.P
 		if inStock {
 			start += _cartPositionInStock(cartPositionInStockArgs{
-				n:           i + 1,
+				qty:         groupedProduct.Qty,
 				price:       pos.Price,
 				priceGlob:   pos.PriceGlob,
 				availableIn: *pos.AvailableIn,
@@ -68,7 +69,7 @@ func RenderCart(cart domain.HouseholdCart, inStock bool) string {
 			})
 		} else {
 			start += _cartPositionOrdered(cartPositionOrderedArgs{
-				n:         i + 1,
+				qty:       groupedProduct.Qty,
 				price:     pos.Price,
 				priceGlob: pos.PriceGlob,
 				name:      pos.Name,
@@ -76,7 +77,7 @@ func RenderCart(cart domain.HouseholdCart, inStock bool) string {
 			})
 		}
 
-		total += pos.Price
+		total += pos.Price * uint32(groupedProduct.Qty)
 	}
 	return start + _cartPreviewEnd(total, false)
 }
@@ -85,11 +86,11 @@ func RenderCartWithDiscount(cart domain.HouseholdCart, discount uint32, inStock 
 	start := _cartPreviewStart(cart.Size())
 
 	var discountedTotal uint32
-	for i, groupedProduct := range cart.Group() {
+	for _, groupedProduct := range cart.Group() {
 		pos := groupedProduct.P
 		if inStock {
 			start += _cartPositionWithDiscountInStock(cartPositionWithDiscountInStockArgs{
-				qty:             int(groupedProduct.Qty),
+				qty:             groupedProduct.Qty,
 				price:           pos.Price,
 				priceGlob:       pos.PriceGlob,
 				availableIn:     *pos.AvailableIn,
@@ -99,7 +100,7 @@ func RenderCartWithDiscount(cart domain.HouseholdCart, discount uint32, inStock 
 			})
 		} else {
 			start += _cartPositionWithDiscountOrdered(cartPositionWithDiscountOrderedArgs{
-				n:               i + 1,
+				qty:             groupedProduct.Qty,
 				price:           pos.Price,
 				priceGlob:       pos.PriceGlob,
 				name:            pos.Name,
@@ -108,13 +109,13 @@ func RenderCartWithDiscount(cart domain.HouseholdCart, discount uint32, inStock 
 			})
 		}
 
-		discountedTotal += pos.Price - discount
+		discountedTotal += pos.Price*uint32(groupedProduct.Qty) - discount
 	}
 	return start + _cartPreviewEnd(discountedTotal, true)
 }
 
 type cartPositionOrderedArgs struct {
-	n         int
+	qty       int
 	price     uint32
 	priceGlob uint32
 	name      string
@@ -124,7 +125,7 @@ type cartPositionOrderedArgs struct {
 func _cartPositionOrdered(args cartPositionOrderedArgs) string {
 	return fmt.Sprintf(
 		positionPreviewOrdered,
-		args.n,
+		args.qty,
 		args.name,
 		args.price,
 		args.priceGlob,
@@ -133,7 +134,7 @@ func _cartPositionOrdered(args cartPositionOrderedArgs) string {
 }
 
 type cartPositionInStockArgs struct {
-	n           int
+	qty         int
 	price       uint32
 	priceGlob   uint32
 	name        string
@@ -144,7 +145,7 @@ type cartPositionInStockArgs struct {
 func _cartPositionInStock(args cartPositionInStockArgs) string {
 	return fmt.Sprintf(
 		positionPreviewInStock,
-		args.n,
+		args.qty,
 		args.name,
 		args.price,
 		args.priceGlob,
@@ -154,7 +155,7 @@ func _cartPositionInStock(args cartPositionInStockArgs) string {
 }
 
 type cartPositionWithDiscountOrderedArgs struct {
-	n               int
+	qty             int
 	price           uint32
 	discountedPrice uint32
 	priceGlob       uint32
@@ -165,7 +166,7 @@ type cartPositionWithDiscountOrderedArgs struct {
 func _cartPositionWithDiscountOrdered(args cartPositionWithDiscountOrderedArgs) string {
 	return fmt.Sprintf(
 		positionPreviewWithDiscountOrdered,
-		args.n,
+		args.qty,
 		args.name,
 		args.price,
 		args.discountedPrice,
