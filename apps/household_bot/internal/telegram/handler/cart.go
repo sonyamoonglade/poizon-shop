@@ -225,7 +225,7 @@ func (h *handler) DeletePositionFromCart(ctx context.Context, chatID int64, butt
 			CausedBy:    "checkRequiredState",
 		})
 	}
-	deletedProduct := customer.Cart.Remove(domain.RemoveByProductID(productIDStr))
+	customer.Cart.Remove(domain.RemoveByProductID(productIDStr))
 	updateDTO := dto.UpdateHouseholdCustomerDTO{
 		Cart: &customer.Cart,
 	}
@@ -287,7 +287,6 @@ func (h *handler) DeletePositionFromCart(ctx context.Context, chatID int64, butt
 			CausedBy:    "sendBulk",
 		})
 	}
-	_ = deletedProduct
 	return nil
 }
 

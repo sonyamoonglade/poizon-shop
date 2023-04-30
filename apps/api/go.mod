@@ -43,8 +43,8 @@ require (
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/matoous/go-nanoid/v2 v2.0.0 // indirect
 	github.com/redis/go-redis/v9 v9.0.3 // indirect
-	github.com/sonyamoonglade/go_func v0.0.0-20230418180836-d7b9b025b11a // indirect
-	golang.org/x/exp v0.0.0-20230321023759-10a507213a29 // indirect
+	github.com/sonyamoonglade/go_func v0.0.0-20230430081942-b7c96d7b6919 // indirect
+	golang.org/x/exp v0.0.0-20230425010034-47ecfdc1ba53 // indirect
 	household_bot v0.0.0 // indirect
 	nanoid v0.0.0 // indirect
 )
@@ -76,7 +76,7 @@ require (
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	go.uber.org/atomic v1.10.0 // indirect
-	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/multierr v1.11.0
 	golang.org/x/crypto v0.8.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect

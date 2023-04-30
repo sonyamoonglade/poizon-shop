@@ -13,7 +13,7 @@ func TestInjectAndParseData(t *testing.T) {
 	t.Run("raw callback", func(t *testing.T) {
 		for cb := 0; cb < 10000; cb++ {
 			data := Inject(Callback(cb))
-			require.Equal(t, rawCallbackPrefix+strconv.Itoa(cb), data)
+			require.Equal(t, strconv.Itoa(cb), data)
 		}
 	})
 

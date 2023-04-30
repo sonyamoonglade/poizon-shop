@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"logger"
 	"utils/transliterators"
 )
 
@@ -12,6 +13,12 @@ type Callback int
 
 const (
 	NoOpCallback Callback = iota
+	// Must start with this to save up symbols. See callback.Inject
+	SelectCategory
+	SelectSubcategory
+	SelectProduct
+	FromProductCardToProducts
+	// --
 	Menu
 	Catalog
 	MyOrders
@@ -22,10 +29,6 @@ const (
 	GetFaqAnswer
 	CTypeOrder
 	CTypeInStock
-	SelectCategory
-	SelectSubcategory
-	SelectProduct
-	FromProductCardToProducts
 	AddToCart
 	AddToCartByISBN
 	EditCart
@@ -39,43 +42,40 @@ func (c Callback) string() string {
 	return strconv.Itoa(int(c))
 }
 
-const (
-	dataPrefix        = "d"
-	rawCallbackPrefix = "c"
-)
-
 func Inject(cb Callback, values ...string) string {
 	if len(values) == 0 {
-		return rawCallbackPrefix + cb.string()
+		return cb.string()
 	}
-	out := dataPrefix + cb.string() + ";" + strings.Join(transliterators.Encode(values), ";")
+	out := cb.string() + ";" + strings.Join(transliterators.Encode(values), ";")
+	logger.Get().Sugar().Debugf("len: %d, out: '%s'", len(out), out)
 	if len(out) > 64 {
-		return rawCallbackPrefix + NoOpCallback.string()
+		return NoOpCallback.string()
 	}
 	return out
 }
 
 func ParseButtonData(data string) (Callback, []string, error) {
-	if data[0] == rawCallbackPrefix[0] {
-		cb, err := parse(data[1:])
+	splitBySep := strings.Split(data, ";")
+	// Nothing has been encoded
+	if len(splitBySep) == 1 {
+		cb, err := parseCallback(data)
 		if err != nil {
 			return -1, nil, fmt.Errorf("callback parse: %w", err)
 		}
 		return cb, nil, nil
 	}
-	values := transliterators.Decode(strings.Split(data[1:], ";"))
+	values := transliterators.Decode(splitBySep)
 	if len(values) == 0 {
 		return -1, nil, fmt.Errorf("invalid callback data")
 	}
-	// Remove prefix
-	cb, err := parse(values[0])
+	cb, err := parseCallback(values[0])
 	if err != nil {
 		return -1, nil, fmt.Errorf("callback parse: %w", err)
 	}
 	return cb, values[1:], nil
 }
 
-func parse(strCallback string) (Callback, error) {
+func parseCallback(strCallback string) (Callback, error) {
 	v, err := strconv.Atoi(strCallback)
 	if err != nil {
 		return 0, err

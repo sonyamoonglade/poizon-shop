@@ -1,6 +1,11 @@
 package transliterators
 
-import "unicode/utf8"
+import (
+	"unicode/utf8"
+	"unsafe"
+
+	fn "github.com/sonyamoonglade/go_func"
+)
 
 var dict = map[string]string{
 	"А": "A",
@@ -81,10 +86,10 @@ var dict = map[string]string{
 	"Щ": "$",
 	"щ": "%",
 
-	"Ъ": "#",
-	"ъ": "@",
+	"ц": "#",
+	"Ц": "!",
 
-	"Ы": "!",
+	"ъ": "@",
 	"ы": "+",
 
 	"Ю": "]",
@@ -92,6 +97,10 @@ var dict = map[string]string{
 
 	"Я": "}",
 	"я": "{",
+
+	"ь": ".",
+
+	"э": ",",
 }
 
 var reversedDict = map[string]string{
@@ -173,10 +182,11 @@ var reversedDict = map[string]string{
 	"$": "Щ",
 	"%": "щ",
 
-	"#": "Ъ",
+	"#": "ц",
+	"!": "Ц",
+
 	"@": "ъ",
 
-	"!": "Ы",
 	"+": "ы",
 
 	"]": "Ю",
@@ -184,56 +194,98 @@ var reversedDict = map[string]string{
 
 	"}": "Я",
 	"{": "я",
+
+	".": "ь",
+
+	",": "э",
 }
 
-func Encode(strs []string) []string {
-	out := make([]string, 0, len(strs))
-	for _, sentence := range strs {
-		if onlyEnglishOrNumberLetters(sentence) {
-			out = append(out, sentence)
-			continue
-		}
-		sub := make([]byte, 0, len(sentence))
-		for _, ch := range []rune(sentence) {
-			if dch, ok := dict[string(ch)]; ok {
-				sub = append(sub, []byte(dch)...)
-			} else {
-				sub = utf8.AppendRune(sub, ch)
-			}
-		}
-		out = append(out, string(sub))
-	}
+const (
+	noEncPrefixByte = '='
+	noEncPrefixStr  = "="
+	spaceSeparator  = " "
+)
 
-	return out
+func Encode(values []string) []string {
+	return fn.
+		Of(values).
+		Map(func(value string, _ int) string {
+			return fn.
+				OfSplitString(value, spaceSeparator).
+				Map(func(word string, _ int) string {
+					if isNumerical(word) {
+						return word
+					}
+					if isEnglishOrNumerical(word) {
+						return noEncPrefixStr + word
+					}
+					return fn.Compose2(byteSliceToStr, encodeToAscii)(word)
+				}).
+				Join(spaceSeparator)
+		}).
+		Result
 }
 
-func Decode(strs []string) []string {
-	out := make([]string, 0, len(strs))
-	for _, sentence := range strs {
-		if onlyEnglishOrNumberLetters(sentence) {
-			out = append(out, sentence)
-			continue
-		}
-		sub := make([]byte, 0, len(sentence))
-		for _, ch := range []rune(sentence) {
-			if dch, ok := reversedDict[string(ch)]; ok {
-				sub = append(sub, []byte(dch)...)
-			} else {
-				sub = utf8.AppendRune(sub, ch)
-			}
-		}
-		out = append(out, string(sub))
-	}
-
-	return out
+func Decode(encoded []string) []string {
+	return fn.
+		Of(encoded).
+		Map(func(value string, _ int) string {
+			return fn.
+				OfSplitString(value, spaceSeparator).
+				Map(func(word string, _ int) string {
+					if isNumerical(word) {
+						return word
+					}
+					if isNotEncoded(word) {
+						return word[1:]
+					}
+					return fn.Compose2(byteSliceToStr, decodeFromAscii)(word)
+				}).
+				Join(spaceSeparator)
+		}).
+		Result
 }
 
-func onlyEnglishOrNumberLetters(sentence string) bool {
-
-	for _, ch := range sentence {
-		if !(('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z') || ('0' <= ch && ch <= '9') || ch == ' ') {
+func isEnglishOrNumerical(word string) bool {
+	for _, ch := range word {
+		if !(('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z') || ('0' <= ch && ch <= '9')) {
 			return false
 		}
 	}
 	return true
+}
+
+func isNumerical(word string) bool {
+	for _, ch := range word {
+		if !('0' <= ch && ch <= '9') {
+			return false
+		}
+	}
+	return true
+}
+
+func encodeToAscii(s string) []byte {
+	return fn.Reduce(func(acc []byte, ch rune, _ int) []byte {
+		if encoded, ok := dict[string(ch)]; ok {
+			return append(acc, []byte(encoded)...)
+		}
+		return utf8.AppendRune(acc, ch)
+	}, []rune(s), make([]byte, 0, len(s)))
+}
+
+func decodeFromAscii(s string) []byte {
+	return fn.Reduce(func(acc []byte, ch rune, _ int) []byte {
+		if decoded, ok := reversedDict[string(ch)]; ok {
+			return append(acc, []byte(decoded)...)
+		}
+		return utf8.AppendRune(acc, ch)
+	}, []rune(s), make([]byte, 0, len(s)))
+}
+
+func byteSliceToStr(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
+}
+
+func isNotEncoded(s string) bool {
+	return s[0] == noEncPrefixByte
 }
