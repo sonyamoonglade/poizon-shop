@@ -267,7 +267,12 @@ func (h *handler) DeletePositionFromCart(ctx context.Context, chatID int64, butt
 
 	var text string
 	if customer.HasPromocode() {
-		text = templates.RenderCartWithDiscount(customer.Cart, customer.MustGetPromocode().GetHouseholdDiscount(), category.InStock)
+		promo := customer.MustGetPromocode()
+		text = templates.RenderCartWithDiscount(
+			customer.Cart,
+			promo.GetHouseholdDiscount(),
+			category.InStock,
+		)
 	} else {
 		text = templates.RenderCart(customer.Cart, category.InStock)
 	}
