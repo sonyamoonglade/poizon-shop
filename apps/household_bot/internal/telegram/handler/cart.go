@@ -265,10 +265,16 @@ func (h *handler) DeletePositionFromCart(ctx context.Context, chatID int64, butt
 	firstProduct, _ := customer.Cart.First()
 	category, _ := h.catalogProvider.GetCategoryByID(firstProduct.CategoryID)
 
+	var text string
+	if customer.HasPromocode() {
+		text = templates.RenderCartWithDiscount(customer.Cart, customer.MustGetPromocode().GetHouseholdDiscount(), category.InStock)
+	} else {
+		text = templates.RenderCart(customer.Cart, category.InStock)
+	}
 	cartMsg := tg.NewEditMessageText(
 		chatID,
 		cartMsgID,
-		templates.RenderCart(customer.Cart, category.InStock),
+		text,
 	)
 	cartMsg.ReplyMarkup = &buttons.CartPreview
 

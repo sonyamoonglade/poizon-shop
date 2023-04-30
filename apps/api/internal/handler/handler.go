@@ -84,13 +84,18 @@ func (h *Handler) RegisterRoutes(router fiber.Router, apiKey string) {
 		clothingCatalog.Post("/deleteItem", h.DeleteClothingItem)
 	}
 
-	householdCategories := api.Group("/household/categories")
+	household := api.Group("/household")
 	{
-		householdCategories.Get("/all", h.GetAllCategories)
-		householdCategories.Get("/:categoryId", h.GetCategoryByID)
-		householdCategories.Post("/new", h.NewCategory)
-		householdCategories.Put("/:categoryId/update", h.UpdateCategory)
-		householdCategories.Post("/:categoryId/delete", h.DeleteCategory)
+		householdCategories := household.Group("/categories")
+		{
+			householdCategories.Get("/all", h.GetAllCategories)
+			householdCategories.Get("/:categoryId", h.GetCategoryByID)
+			householdCategories.Post("/new", h.NewCategory)
+			householdCategories.Put("/:categoryId/update", h.UpdateCategory)
+			householdCategories.Post("/:categoryId/delete", h.DeleteCategory)
+		}
+
+		household.Get("/callbackCalculator", h.CallbackQueryCalculator)
 	}
 
 }

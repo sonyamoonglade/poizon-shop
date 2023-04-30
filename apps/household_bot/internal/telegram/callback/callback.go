@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"logger"
 	"utils/transliterators"
 )
 
@@ -47,7 +46,6 @@ func Inject(cb Callback, values ...string) string {
 		return cb.string()
 	}
 	out := cb.string() + ";" + strings.Join(transliterators.Encode(values), ";")
-	logger.Get().Sugar().Debugf("len: %d, out: '%s'", len(out), out)
 	if len(out) > 64 {
 		return NoOpCallback.string()
 	}
