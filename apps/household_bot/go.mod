@@ -14,7 +14,7 @@ require (
 
 require (
 	github.com/golang/mock v1.4.4
-	github.com/sonyamoonglade/go_func v0.0.0-20230418180836-d7b9b025b11a
+	github.com/sonyamoonglade/go_func v0.0.0-20230430081942-b7c96d7b6919
 	redis v0.0.0
 	utils v0.0.0-00010101000000-000000000000
 )
@@ -44,7 +44,7 @@ require (
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	golang.org/x/crypto v0.8.0 // indirect
-	golang.org/x/exp v0.0.0-20230321023759-10a507213a29 // indirect
+	golang.org/x/exp v0.0.0-20230425010034-47ecfdc1ba53 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.7.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect

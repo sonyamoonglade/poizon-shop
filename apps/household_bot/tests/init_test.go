@@ -46,7 +46,6 @@ func TestAPISuite(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("skip e2e test")
 	}
-
 	suite.Run(t, new(AppTestSuite))
 }
 
