@@ -3,7 +3,7 @@ module utils
 go 1.18
 
 require (
-	github.com/sonyamoonglade/go_func v0.0.0-20230418180836-d7b9b025b11a
+	github.com/sonyamoonglade/go_func v0.0.0-20230430081942-b7c96d7b6919
 	github.com/stretchr/testify v1.8.2
 )
 
@@ -16,7 +16,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace (
-	functools => ../functools
-	github.com/sonyamoonglade/go_func => ../../../go_func
-)
+replace functools => ../functools
