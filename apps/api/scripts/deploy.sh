@@ -10,6 +10,10 @@ echo "building..."
 
 cp ./scripts/run.sh ./deploy/run.sh
 
+#backup
+ssh -i ~/.ssh/vadim-shop $USER@$IP "./backup.sh"
+echo "backing up old files..."
+
 # remove old binary
 ssh -i ~/.ssh/vadim-shop $USER@$IP "rm -rf ~/build/api/api ~/build/api/run.sh"
 

@@ -10,6 +10,10 @@ cp templates.json ./deploy
 cp -r videos ./deploy
 echo "building..."
 
+#backup
+ssh -i ~/.ssh/vadim-shop $USER@$IP "./backup.sh"
+echo "backing up old files..."
+
 # remove old files
 ssh -i ~/.ssh/vadim-shop $USER@$IP "rm -rf ~/build/clothing/clothing ~/build/clothing/run.sh"
 
