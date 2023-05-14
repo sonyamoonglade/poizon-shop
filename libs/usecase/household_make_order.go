@@ -28,7 +28,8 @@ func NewHouseholdMakeOrderUsecase(
 	}
 }
 
-func (h *HouseholdMakeOrder) NewOrder(ctx context.Context, deliveryAddress string, customer domain.HouseholdCustomer, inStock bool) (domain.HouseholdOrder, error) {
+func (h *HouseholdMakeOrder) NewOrder(ctx context.Context, deliveryAddress string, customer domain.HouseholdCustomer,
+	inStock bool) (domain.HouseholdOrder, error) {
 	shortID, err := h.orderService.GetFreeShortID(ctx)
 	if err != nil {
 		return domain.HouseholdOrder{}, fmt.Errorf("orderService.GetFreeShortID: %w", err)

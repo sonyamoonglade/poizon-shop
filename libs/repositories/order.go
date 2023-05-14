@@ -57,7 +57,10 @@ func (o *orderRepo[T]) ChangeStatus(ctx context.Context, dto dto.ChangeOrderStat
 
 func (o *orderRepo[T]) GetAll(ctx context.Context) ([]T, error) {
 	findOpts := options.Find()
-	findOpts.SetSort(bson.M{"isApproved": -1})
+	findOpts.SetSort(bson.D{
+		{"isApproved", -1},
+		{"createdAt", -1},
+	})
 	res, err := o.orders.Find(ctx, bson.D{}, findOpts)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
