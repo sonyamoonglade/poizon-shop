@@ -27,3 +27,7 @@ type ClothingPosition struct {
 	Size       string             `json:"size" bson:"size"`
 	Category   Category           `json:"category" bson:"category"`
 }
+
+func NewEmptyClothingPosition() *ClothingPosition {
+	return &ClothingPosition{}
+}

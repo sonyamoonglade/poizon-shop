@@ -44,23 +44,18 @@ func (h *Handler) DeletePromocode(c *fiber.Ctx) error {
 	if err != nil {
 		return fmt.Errorf("get promo id from params: %w", err)
 	}
-	if err := h.repositories.Promocode.Delete(c.Context(), promoId); err != nil {
-		return fmt.Errorf("delete: %w", err)
-	}
-	hCustomers, err := h.services.HouseholdCustomer.GetAllByPromocodeID(c.Context(), promoId)
-	if err != nil {
-		return fmt.Errorf("get all by promoid: %w", err)
-	}
-	cCustomers, err := h.services.ClothingCustomer.GetAllByPromocodeID(c.Context(), promoId)
-	if err != nil {
-		return fmt.Errorf("get all by promoid: %w", err)
-	}
+
 	// clothing
 	wg := new(sync.WaitGroup)
 	wg.Add(2)
+	var deletionError error
 	go func() {
+		cCustomers, err := h.services.ClothingCustomer.GetAllByPromocodeID(c.Context(), promoId)
+		if err != nil {
+			deletionError = multierr.Append(deletionError, fmt.Errorf("get clothing customers by id: %w", err))
+		}
 		for _, customer := range cCustomers {
-			err = multierr.Append(err, h.services.ClothingCustomer.Update(c.Context(), customer.CustomerID, dto.UpdateClothingCustomerDTO{
+			deletionError = multierr.Append(deletionError, h.services.ClothingCustomer.Update(c.Context(), customer.CustomerID, dto.UpdateClothingCustomerDTO{
 				PromocodeID: &primitive.ObjectID{},
 			}))
 		}
@@ -68,19 +63,26 @@ func (h *Handler) DeletePromocode(c *fiber.Ctx) error {
 	}()
 	// household
 	go func() {
+		hCustomers, err := h.services.HouseholdCustomer.GetAllByPromocodeID(c.Context(), promoId)
+		if err != nil {
+			deletionError = multierr.Append(deletionError, fmt.Errorf("get household customers by id: %w", err))
+		}
 		for _, customer := range hCustomers {
-			err = multierr.Append(err, h.services.HouseholdCustomer.Update(c.Context(), customer.CustomerID, dto.UpdateHouseholdCustomerDTO{
+			deletionError = multierr.Append(deletionError, h.services.HouseholdCustomer.Update(c.Context(), customer.CustomerID, dto.UpdateHouseholdCustomerDTO{
 				PromocodeID: &primitive.ObjectID{},
 			}))
 		}
 		wg.Done()
 	}()
 	wg.Wait()
-	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": err.Error(),
-		})
+	if deletionError != nil {
+		return fmt.Errorf("deletion error: %w", deletionError)
 	}
+	// after successful promocode deletion from each customer delete promocode itself
+	if err := h.repositories.Promocode.Delete(c.Context(), promoId); err != nil {
+		return fmt.Errorf("promocode delete: %w", err)
+	}
+
 	return c.SendStatus(http.StatusOK)
 }
 
@@ -94,6 +96,24 @@ func (h *Handler) GetByID(c *fiber.Ctx) error {
 		return fmt.Errorf("get by id: %w", err)
 	}
 	return c.Status(http.StatusOK).JSON(promo)
+}
+
+func (h *Handler) Update(c *fiber.Ctx) error {
+	var inp input.UpdatePromocodeInput
+	if err := c.BodyParser(&inp); err != nil {
+		return fmt.Errorf("body parser: %w", err)
+	}
+
+	promocodeID, err := h.getPromocodeIdFromParams(c)
+	if err != nil {
+		return fmt.Errorf("get promocode id from params: %w", err)
+	}
+
+	if err := h.repositories.Promocode.Update(c.Context(), promocodeID, inp.ToDTO()); err != nil {
+		return fmt.Errorf("promocode update: %w", err)
+	}
+
+	return c.SendStatus(http.StatusOK)
 }
 
 func (h *Handler) getPromocodeIdFromParams(c *fiber.Ctx) (primitive.ObjectID, error) {
