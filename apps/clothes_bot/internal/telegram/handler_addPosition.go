@@ -197,13 +197,13 @@ func (h *handler) HandlePriceInput(ctx context.Context, m *tg.Message) error {
 	if err != nil {
 		return fmt.Errorf("get yuan rate: %w", err)
 	}
+
 	args := domain.ConvertYuanArgs{
 		X:         priceYuan,
 		Rate:      rate,
 		OrderType: *ordTyp,
 		Category:  customer.LastEditPosition.Category,
 	}
-
 	priceRub := domain.ConvertYuan(args)
 	customer.UpdateLastEditPositionPrice(priceRub, priceYuan)
 
@@ -256,7 +256,7 @@ func (h *handler) HandleLinkInput(ctx context.Context, m *tg.Message) error {
 	customer.UpdateLastEditPositionLink(link)
 	customer.Cart.Add(*customer.LastEditPosition)
 	updateDTO := dto.UpdateClothingCustomerDTO{
-		LastPosition: customer.LastEditPosition,
+		LastPosition: domain.NewEmptyClothingPosition(),
 		Cart:         &customer.Cart,
 		State:        &domain.StateDefault,
 	}

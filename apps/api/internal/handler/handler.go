@@ -63,6 +63,7 @@ func (h *Handler) RegisterRoutes(router fiber.Router, apiKey string) {
 	{
 		promocode.Get("/all", h.GetAllPromocodes)
 		promocode.Get("/:promocodeId", h.GetByID)
+		promocode.Post("/:promocodeId/update", h.Update)
 		promocode.Post("/new", h.NewPromocode)
 		promocode.Post("/:promocodeId/delete", h.DeletePromocode)
 	}
