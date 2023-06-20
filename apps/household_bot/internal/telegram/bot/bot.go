@@ -1,6 +1,8 @@
 package bot
 
 import (
+	"fmt"
+
 	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
@@ -17,10 +19,15 @@ type bot struct {
 	client *tg.BotAPI
 }
 
+// Assume only running long-poll
 func NewBot(config Config) (*bot, error) {
 	client, err := tg.NewBotAPI(config.Token)
 	if err != nil {
 		return nil, err
+	}
+	_, err = client.Request(tg.DeleteWebhookConfig{})
+	if err != nil {
+		return nil, fmt.Errorf("delete webhook: %w", err)
 	}
 	return &bot{
 		client: client,
