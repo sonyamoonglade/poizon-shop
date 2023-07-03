@@ -8,11 +8,10 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"onlineshop/api/internal/auth"
 	"repositories"
 	"services"
-
-	"github.com/gofiber/fiber/v2"
 )
 
 type RateProvider interface {
@@ -104,6 +103,9 @@ func (h *Handler) Home(c *fiber.Ctx) error {
 	return c.SendStatus(http.StatusOK)
 }
 
+// root dir in s3 storage
+const rootDir = ""
+
 func (h *Handler) Upload(c *fiber.Ctx) error {
 	fheader, err := c.FormFile("file")
 	if err != nil {
@@ -121,7 +123,7 @@ func (h *Handler) Upload(c *fiber.Ctx) error {
 	path := fmt.Sprintf("%s_%s", seed, fheader.Filename)
 	err = h.imageUploader.Put(c.Context(), PutFileDTO{
 		Filename:    path,
-		Destination: "", // left empty to upload to root dir
+		Destination: rootDir,
 		ContentType: http.DetectContentType(bits),
 		Bytes:       bits,
 	})

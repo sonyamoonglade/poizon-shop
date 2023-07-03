@@ -98,7 +98,6 @@ func run() error {
 	defer cancel()
 
 	onCatalogUpdate := func(items []domain.ClothingProduct) error {
-		fmt.Println("loading: ", items)
 		catalogProvider.Load(items)
 		return nil
 	}
@@ -112,15 +111,6 @@ func run() error {
 		onCatalogUpdate,
 		redisErrorHandler,
 	)
-
-	//go bus.SubscribeToTopicWithCallback(
-	//	redCtx,
-	//	redis.HouseholdWipeCatalogTopic,
-	//	func(_ []domain.HouseholdCategory) error {
-	//		return handler.WipeCatalogs(redCtx)
-	//	},
-	//	redisErrorHandler,
-	//)
 
 	go router.Bootstrap()
 

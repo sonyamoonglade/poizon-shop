@@ -8,11 +8,6 @@ import (
 	"onlineshop/api/internal/handler"
 )
 
-type Config struct {
-	Owner  string
-	Bucket string
-}
-
 type Uploader struct {
 	client  *s3yandex.YandexS3Client
 	baseURL string

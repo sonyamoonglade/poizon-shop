@@ -100,6 +100,9 @@ func (h *handler) HandleDeliveryAddressInput(ctx context.Context, m *tg.Message)
 
 	isExpress := customer.Meta.NextOrderType.IsExpress()
 	order := domain.NewClothingOrder(customer, address, isExpress, shortID)
+	if customer.HasPromocode() {
+		order.UseDiscount(customer.MustGetPromocode().GetClothingDiscount())
+	}
 
 	if err := h.orderService.Save(ctx, order); err != nil {
 		return err
