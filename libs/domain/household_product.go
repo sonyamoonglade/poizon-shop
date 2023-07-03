@@ -30,3 +30,7 @@ func (hp HouseholdProduct) GetAvailableInStr() string {
 	}
 	return strings.Join(*hp.AvailableIn, ";")
 }
+
+func (hp HouseholdProduct) HasImage() bool {
+	return hp.ImageURL != ""
+}

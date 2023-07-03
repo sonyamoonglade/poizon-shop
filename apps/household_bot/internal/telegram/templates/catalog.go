@@ -7,6 +7,10 @@ import (
 )
 
 const (
+	PositionHasNoImage = "На данном товаре отсутсвует картинка. Выберите другой или обратитесь к администратору бота."
+)
+
+const (
 	productTemplateOrdered         = "Название: %s\n\nЦена: %d ₽\nЦена по рынку: %d ₽\n\nАртикул: *%s*\n\nОписание:\n - %s"
 	productTemplateInStock         = "Название: %s\n\nЦена: %d ₽\nЦена по рынку: %d ₽\n\nНаличие: %s\nАртикул: *%s*\n\nОписание:\n - %s"
 	productTemplateDiscountOrdered = "Название: %s\n\nЦена: %d ₽\nЦена со скидкой: %d ₽\nЦена по рынку: %d ₽\n\nАртикул: *%s*\n\nОписание:\n - %s"

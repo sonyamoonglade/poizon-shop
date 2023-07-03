@@ -7,14 +7,15 @@ import (
 	"strconv"
 
 	"domain"
+	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	fn "github.com/sonyamoonglade/go_func"
+	"go.uber.org/zap"
 	"household_bot/internal/telegram/buttons"
 	"household_bot/internal/telegram/callback"
 	"household_bot/internal/telegram/templates"
 	"household_bot/internal/telegram/tg_errors"
 	"household_bot/pkg/telegram"
-
-	tg "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"logger"
 )
 
 func (h *handler) Categories(ctx context.Context, chatID int64, prevMsgID int, inStock bool) error {
@@ -103,20 +104,6 @@ func (h *handler) Products(ctx context.Context, chatID int64, prevMsgID int, arg
 }
 
 func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, args []string) error {
-	if err := h.bot.CleanRequest(tg.NewDeleteMessage(chatID, prevMsgID)); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "Products",
-			CausedBy:    "CleanRequest",
-		})
-	}
-	if err := h.catalogMsgService.DeleteByMsgID(ctx, prevMsgID); err != nil {
-		return tg_errors.New(tg_errors.Config{
-			OriginalErr: err,
-			Handler:     "Products",
-			CausedBy:    "DeleteByMsgID",
-		})
-	}
 	var (
 		cTitle,
 		sTitle,
@@ -142,12 +129,32 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 	}
 
 	product := h.catalogProvider.GetProduct(cTitle, sTitle, productName, inStock)
+	if !product.HasImage() {
+		return h.sendMessage(chatID, templates.PositionHasNoImage)
+	}
+
+	if err := h.bot.CleanRequest(tg.NewDeleteMessage(chatID, prevMsgID)); err != nil {
+		logger.Get().Error("ProductCard.h.bot.CleanRequest", zap.Error(tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "ProductCard",
+			CausedBy:    "h.bot.CleanRequest",
+		})))
+	}
+	if err := h.catalogMsgService.DeleteByMsgID(ctx, prevMsgID); err != nil {
+		logger.Get().Error("ProductCard.DeleteByMsgID", zap.Error(tg_errors.New(tg_errors.Config{
+			OriginalErr: err,
+			Handler:     "ProductCard",
+			CausedBy:    "DeleteByMsgID",
+		})))
+	}
+
 	currentQuantity := fn.Reduce(func(acc int, el domain.HouseholdProduct, _ int) int {
 		if el.Name == productName {
 			acc += 1
 		}
 		return acc
 	}, customer.Cart.Slice(), 0)
+
 	keyboard := buttons.NewProductCardButtons(buttons.ProductCardButtonsArgs{
 		Cb:       callback.AddToCart,
 		CTitle:   cTitle,
@@ -161,6 +168,8 @@ func (h *handler) ProductCard(ctx context.Context, chatID int64, prevMsgID int, 
 			&inStock,
 		),
 	})
+
+	// FIXME: product price in render might be VERY VERY BIG (uint overflow) because price is lower than discount
 	if err := h.renderProductCard(ctx, chatID, product, customer, keyboard, inStock); err != nil {
 		return tg_errors.New(tg_errors.Config{
 			OriginalErr: err,
